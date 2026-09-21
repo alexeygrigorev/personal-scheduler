@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from scheduler import availability as av
 from scheduler import config, http, render, security, service, store, wiring
+from scheduler.timezones import viewer_timezone
 from scheduler.calendar import AuthLost, CalendarError
 from scheduler.dapier import DapierError
 from scheduler.http import HttpError
@@ -99,11 +100,7 @@ def _availability(event):
     if not ok:
         raise HttpError(422, "unsupported_duration", "That duration is not offered.")
     duration_min = int(query.get("duration"))
-    viewer_tz = (query.get("tz") or "UTC").strip() or "UTC"
-    try:
-        ZoneInfo(viewer_tz)
-    except Exception:
-        raise HttpError(400, "invalid_input", "Unknown timezone.")
+    viewer_tz = viewer_timezone(event)  # already validated against ZoneInfo
     try:
         viewer_from = date.fromisoformat(query.get("from", "")) if query.get("from") else None
         viewer_to = date.fromisoformat(query.get("to", "")) if query.get("to") else None
@@ -261,7 +258,7 @@ def _manage_api(event, token, action, method):
     return http.json_response(200, result)
 
 
-def _serve_booking_page(slug):
+def _serve_booking_page(slug, event):
     item = store.resolve_slug(slug)
     if item is None:
         return render.notice("Invalid link", "This link does not point at a bookable meeting.",
@@ -271,7 +268,8 @@ def _serve_booking_page(slug):
                                             "Existing booking links still work.", status=410,
                              link=("See bookable meetings", "/"))
     host = store.get_host()
-    return render.booking_page(item, host.get("display_name", "Scheduling"))
+    return render.booking_page(item, host.get("display_name", "Scheduling"),
+                               viewer_timezone(event))
 
 
 def _serve_manage_page(token):
@@ -362,7 +360,7 @@ def lambda_handler(event, _context):
         if path.startswith("/receipt/") and method == "GET":
             return _serve_receipt(path[len("/receipt/"):].strip("/").split("/")[0])
         if path.startswith("/") and method == "GET" and path.count("/") == 1:
-            return _serve_booking_page(path.strip("/"))
+            return _serve_booking_page(path.strip("/"), event)
         return render.notice("Not found", "Nothing lives at this address.", status=404)
     except HttpError as exc:
         if path.startswith("/api/"):

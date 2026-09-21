@@ -11,7 +11,11 @@
 
   const state = {
     duration: cfg.defaultDuration,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    // The server already inferred this from the browser cookie on first
+    // paint; Intl detection is the fallback for a first visit or a cleared
+    // cookie. Either way the zone is remembered back into the cookie so the
+    // next server render and API default agree with this page.
+    timezone: cfg.defaultTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     hour12: false,
     month: null, // Date at first of visible month
     days: [],
@@ -152,6 +156,13 @@
     if (el) el.textContent = message || "";
   }
 
+  function rememberTimezone() {
+    // Preference only, not a credential: readable by script, scoped to this
+    // site, so the next page render already knows the visitor's zone.
+    document.cookie = "sched_tz=" + encodeURIComponent(state.timezone) +
+      "; Path=/; Max-Age=31536000; SameSite=Lax";
+  }
+
   async function submitBooking(ev) {
     ev.preventDefault();
     ["err-name", "err-email", "err-notes"].forEach((id) => fieldError(id, ""));
@@ -254,6 +265,7 @@
     // A timezone change never silently keeps an absolute instant: the
     // selection clears and the visitor reviews the re-rendered times.
     state.timezone = ev.target.value;
+    rememberTimezone();
     state.selectedStart = "";
     formWrap.hidden = true;
     updateSummary();
@@ -277,6 +289,7 @@
 
   const now = new Date();
   state.month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  rememberTimezone();
   const tzSelect = $("tz-select");
   if (![...tzSelect.options].some((o) => o.value === state.timezone)) {
     const opt = document.createElement("option");

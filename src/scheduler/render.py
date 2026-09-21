@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from . import config, http
+from .timezones import COMMON_ZONES, is_valid_zone
 
 WEB_DIR = Path(__file__).parent.parent / "web"
 ASSETS = {"app.css": "text/css; charset=utf-8",
@@ -75,7 +76,7 @@ def landing_page(host_name, intro, types):
     return http.html_response(200, shell(host_name, body))
 
 
-def booking_page(item, host_name):
+def booking_page(item, host_name, viewer_tz="UTC"):
     if item["duration_mode"] == "fixed":
         durations = [item["fixed_duration_min"]]
         default = item["fixed_duration_min"]
@@ -101,7 +102,14 @@ def booking_page(item, host_name):
             f"<div class=\"field\"><label for=\"q-{qid}\">{_esc(question.get('label', qid))}</label>"
             f"<input id=\"q-{qid}\" data-question=\"{qid}\" maxlength=\"{int(question.get('max_length', 2000))}\"{required}>"
             f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
-    cfg = {"slug": item["slug"], "apiBase": "/api/v1", "defaultDuration": default}
+    valid_viewer_tz = viewer_tz if is_valid_zone(viewer_tz) else "UTC"
+    cfg = {"slug": item["slug"], "apiBase": "/api/v1", "defaultDuration": default,
+           "defaultTimezone": valid_viewer_tz}
+    zone_options = []
+    zones = (valid_viewer_tz,) + COMMON_ZONES if valid_viewer_tz not in COMMON_ZONES else COMMON_ZONES
+    for zone in zones:
+        selected = " selected" if zone == cfg["defaultTimezone"] else ""
+        zone_options.append(f"<option value=\"{_esc(zone)}\"{selected}>{_esc(zone)}</option>")
     body = f"""<div id="booking-root" data-config='{json.dumps(cfg)}'>
 <h1>{_esc(item['title'])}</h1>
 <div class="booking-grid">
@@ -114,11 +122,7 @@ def booking_page(item, host_name):
 <section aria-label="Choose a date and time">
 <div class="toolbar">
 <label>Timezone <select id="tz-select">
-<option value="Europe/Berlin">Europe/Berlin</option>
-<option value="UTC">UTC</option>
-<option value="America/New_York">America/New_York</option>
-<option value="America/Los_Angeles">America/Los_Angeles</option>
-<option value="Asia/Singapore">Asia/Singapore</option>
+{''.join(zone_options)}
 </select></label>
 <button type="button" class="btn secondary" id="clock-toggle">Use 12-hour clock</button>
 </div>
