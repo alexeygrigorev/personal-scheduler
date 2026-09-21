@@ -16,10 +16,11 @@ auth_output() {
 AUTH_CLIENT_ID="${AUTH_CLIENT_ID:-$(auth_output PersonalSchedulerClientId)}"
 AUTH_ISSUER="${AUTH_ISSUER:-$(auth_output IssuerUrl)}"
 AUTH_JWKS_URL="${AUTH_JWKS_URL:-$(auth_output JwksUrl)}"
+CERT_ARN="${CERT_ARN:-arn:aws:acm:eu-west-1:817685572750:certificate/c13e30c0-f10d-43f2-9bb3-d9b3f60d0b45}"
 
 sam deploy --config-env sandbox --parameter-overrides \
   DomainName=scheduler.dtcdev.click \
-  DomainCertificateArn=arn:aws:acm:eu-west-1:817685572750:certificate/da5101db-666f-49da-a76b-e2c781afdd6b \
+  DomainCertificateArn="$CERT_ARN" \
   HostedZoneId=Z05963572WVWFHDQZH5NE \
   AuthBaseUrl=https://auth.dtcdev.click \
   AuthClientId="$AUTH_CLIENT_ID" \
