@@ -1,0 +1,336 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Personal scheduling service (Calendly replacement) for a single host
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: scheduler.dtcdev.click
+  DomainCertificateArn:
+    Type: String
+  HostedZoneId:
+    Type: String
+    Default: Z05963572WVWFHDQZH5NE
+  AuthBaseUrl:
+    Type: String
+    Default: https://auth.dtcdev.click
+  AuthClientId:
+    Type: String
+  AuthIssuer:
+    Type: String
+  AuthJwksUrl:
+    Type: String
+  RootAdmin:
+    Type: String
+    Default: alexey@datatalks.club
+    Description: Bootstrap owner, admin of the scheduler before any grant exists.
+  EmailSender:
+    Type: String
+    Default: scheduler@datatalks.club
+    Description: Verified SES identity used for confirmations and reminders.
+  DapierBaseUrl:
+    Type: String
+    Default: https://dapier.dtcdev.click
+    Description: Dapier deployment this scheduler consumes calendar access from.
+  GitHubRepo:
+    Type: String
+    Default: DataTalksClub/personal-scheduler
+    Description: owner/repo allowed to assume the deploy role via GitHub OIDC.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 15
+    MemorySize: 512
+    Tracing: Active
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref Table
+        SITE_URL: !Sub https://${DomainName}
+        SESSION_SECRET_ARN: !Ref SessionSecret
+        ROOT_ADMIN: !Ref RootAdmin
+        AUTH_BASE_URL: !Ref AuthBaseUrl
+        AUTH_CLIENT_ID: !Ref AuthClientId
+        AUTH_ISSUER: !Ref AuthIssuer
+        AUTH_JWKS_URL: !Ref AuthJwksUrl
+        AUTH_CALLBACK_URL: !Sub https://${DomainName}/auth/callback
+        EMAIL_SENDER: !Ref EmailSender
+        DAPIER_BASE_URL: !Ref DapierBaseUrl
+        WORK_QUEUE_URL: !Ref WorkQueue
+
+Resources:
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Domain:
+        DomainName: !Ref DomainName
+        CertificateArn: !Ref DomainCertificateArn
+        EndpointConfiguration: REGIONAL
+        Route53:
+          HostedZoneId: !Ref HostedZoneId
+          EvaluateTargetHealth: false
+
+  SessionSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}/session
+      Description: HMAC key for scheduler session and invitee management cookies
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: signing_secret
+        PasswordLength: 64
+        ExcludePunctuation: true
+
+  Table:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref AWS::StackName
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      AttributeDefinitions:
+        - {AttributeName: PK, AttributeType: S}
+        - {AttributeName: SK, AttributeType: S}
+        - {AttributeName: GSI1PK, AttributeType: S}
+        - {AttributeName: GSI1SK, AttributeType: S}
+      KeySchema:
+        - {AttributeName: PK, KeyType: HASH}
+        - {AttributeName: SK, KeyType: RANGE}
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - {AttributeName: GSI1PK, KeyType: HASH}
+            - {AttributeName: GSI1SK, KeyType: RANGE}
+          Projection: {ProjectionType: ALL}
+
+  WorkQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 180
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WorkDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  WorkDeadLetterQueue:
+    Type: AWS::SQS::Queue
+
+  PublicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: public_handler.lambda_handler
+      Description: Landing page, booking flow, management links, and the REST API
+      Policies:
+        - DynamoDBCrudPolicy: {TableName: !Ref Table}
+        - SQSSendMessagePolicy: {QueueName: !GetAtt WorkQueue.QueueName}
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: !Ref SessionSecret
+      Events:
+        Root:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: /, Method: GET}
+        Health:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: /health, Method: GET}
+        Assets:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: '/assets/{proxy+}', Method: GET}
+        Api:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: '/api/v1/{proxy+}', Method: ANY}
+        Pages:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: '/{proxy+}', Method: ANY}
+
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: admin_handler.lambda_handler
+      Description: Admin console and the shared-auth login flow
+      Policies:
+        - DynamoDBCrudPolicy: {TableName: !Ref Table}
+        - SQSSendMessagePolicy: {QueueName: !GetAtt WorkQueue.QueueName}
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: !Ref SessionSecret
+      Events:
+        Admin:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: /admin, Method: GET}
+        AdminProxy:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: '/admin/{proxy+}', Method: ANY}
+        Auth:
+          Type: HttpApi
+          Properties: {ApiId: !Ref Api, Path: '/auth/{proxy+}', Method: GET}
+
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: worker.lambda_handler
+      Description: Email delivery, reminders, and booking reconciliation
+      Timeout: 60
+      Policies:
+        - DynamoDBCrudPolicy: {TableName: !Ref Table}
+        - SQSSendMessagePolicy: {QueueName: !GetAtt WorkQueue.QueueName}
+        - Statement:
+            - Effect: Allow
+              Action: [ses:SendEmail, ses:SendRawEmail]
+              Resource: '*'
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: !Ref SessionSecret
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WorkQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes: [ReportBatchItemFailures]
+        Tick:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: personal-scheduler-github-actions-deploy
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+              StringLike:
+                "token.actions.githubusercontent.com:sub": !Sub "repo:${GitHubRepo}:*"
+      Policies:
+        - PolicyName: personal-scheduler-sam-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:*
+                  - iam:PassRole
+                  - iam:GetRole
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - lambda:*
+                  - apigateway:*
+                  - dynamodb:*
+                  - sqs:*
+                  - secretsmanager:*
+                  - ses:*
+                  - scheduler:*
+                  - events:*
+                  - logs:*
+                  - cloudwatch:*
+                  - route53:*
+                  - acm:*
+                  - ssm:*
+                Resource: "*"
+
+  PublicErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scheduler public function errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref PublicFunction
+
+  AdminErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scheduler admin function errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AdminFunction
+
+  WorkerErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scheduler worker function errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WorkerFunction
+
+  WorkDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scheduler work items are waiting in the dead-letter queue
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt WorkDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  SiteUrl:
+    Description: Public site.
+    Value: !Sub https://${DomainName}
+  AdminUrl:
+    Description: Admin console.
+    Value: !Sub https://${DomainName}/admin
+  ApiBaseUrl:
+    Description: REST API base URL.
+    Value: !Sub https://${DomainName}/api/v1
+  TableName:
+    Value: !Ref Table
+  WorkQueueUrl:
+    Value: !Ref WorkQueue
+  ApiEndpoint:
+    Description: Default execute-api endpoint, for debugging before DNS settles.
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com

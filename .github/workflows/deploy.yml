@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [Test]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: personal-scheduler-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::817685572750:role/personal-scheduler-github-actions-deploy
+          aws-region: eu-west-1
+
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      # `make build`, not `sam build`: src/requirements.txt is generated from the
+      # lockfile and gitignored, so building without it ships a Lambda with no
+      # dependencies — which deploys cleanly and then 500s on every request.
+      - name: Build
+        run: make build
+
+      - name: Deploy
+        run: scripts/deploy.sh --no-confirm-changeset --no-fail-on-empty-changeset
+
+      - name: Verify the deployment
+        run: uv run python scripts/verify_deployment.py

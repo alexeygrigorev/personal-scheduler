@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.aws-sam/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+coverage/
+.env
+src/requirements.txt

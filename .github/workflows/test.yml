@@ -1,0 +1,26 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: make test
+
+      - name: Validate SAM template
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - run: sam validate --lint
