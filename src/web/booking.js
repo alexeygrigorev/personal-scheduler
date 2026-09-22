@@ -194,10 +194,15 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = String(cursor.getUTCDate());
-      if (isToday) { btn.classList.add("today"); btn.title = "Today"; }
+      if (isToday) {
+        btn.classList.add("today");
+        btn.title = "Today";
+        btn.setAttribute("aria-current", "date");
+      }
       const label = new Date(key + "T12:00:00Z").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })
         + (isToday ? " (today)" : "");
       if (available.has(key)) {
+        btn.dataset.day = key;
         btn.setAttribute("aria-pressed", key === state.selectedDay ? "true" : "false");
         btn.setAttribute("aria-label", `Bookable: ${label}`);
         btn.addEventListener("click", () => {
@@ -220,6 +225,37 @@
       cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
     renderMonthLabel();
+    syncDayGridFocus(grid);
+  }
+
+  // One tab stop for the whole grid — a month is otherwise 30+ tab presses.
+  // Arrow keys walk bookable days, skipping disabled cells in the direction
+  // of travel, and stop at the month edge rather than jumping months.
+  function syncDayGridFocus(grid) {
+    const cells = [...grid.querySelectorAll("button[data-day]")];
+    const anchor =
+      cells.find((b) => b.getAttribute("aria-pressed") === "true") ||
+      cells.find((b) => b.classList.contains("today")) ||
+      cells[0];
+    for (const b of cells) b.tabIndex = b === anchor ? 0 : -1;
+  }
+
+  function adjacentDay(grid, btn, delta) {
+    const dir = Math.sign(delta);
+    const byDay = new Map();
+    grid.querySelectorAll("button[data-day]").forEach((b) => byDay.set(b.dataset.day, b));
+    const cur = new Date(btn.dataset.day + "T12:00:00Z");
+    const month = cur.getUTCMonth();
+    for (let i = 0; i < Math.abs(delta); i++) {
+      cur.setUTCDate(cur.getUTCDate() + dir);
+      if (cur.getUTCMonth() !== month) return null;
+    }
+    while (cur.getUTCMonth() === month) {
+      const cand = byDay.get(cur.toISOString().slice(0, 10));
+      if (cand) return cand;
+      cur.setUTCDate(cur.getUTCDate() + dir);
+    }
+    return null;
   }
 
   function renderTimes(slots, { restoreFocus = false } = {}) {
@@ -479,6 +515,29 @@
       loadAvailability();
     }
   }
+
+  // The roving tabindex: arrows and Home/End move focus between bookable
+  // days; picking still happens on click or Enter.
+  $("day-grid").addEventListener("keydown", (ev) => {
+    const btn = ev.target.closest("button[data-day]");
+    if (!btn) return;
+    const grid = ev.currentTarget;
+    const deltas = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    let next;
+    if (ev.key in deltas) {
+      next = adjacentDay(grid, btn, deltas[ev.key]);
+    } else if (ev.key === "Home" || ev.key === "End") {
+      const cells = grid.querySelectorAll("button[data-day]");
+      next = ev.key === "Home" ? cells[0] : cells[cells.length - 1];
+    } else {
+      return;
+    }
+    if (!next) return;
+    ev.preventDefault();
+    btn.tabIndex = -1;
+    next.tabIndex = 0;
+    next.focus({ preventScroll: true });
+  });
 
   // Duration selector comes before date and time choices; changing it
   // recomputes days and starts and clears a now-invalid selection.
