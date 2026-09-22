@@ -214,6 +214,14 @@ def _manage_api(event, token, action, method):
         return http.response(200, _ics_for_booking(booking), content_type="text/calendar; charset=utf-8",
                              headers={"content-disposition": 'attachment; filename="booking.ics"',
                                       "cache-control": "no-store"})
+    if method == "GET" and action == "status":
+        # Read-only settle probe for the manage page's recheck loop. The page
+        # promised to reflect the outcome on its own; these are the two fields
+        # that notice it landing (a finished cancel flips status, a finished
+        # reschedule bumps revision), and nothing personal beyond them.
+        return http.json_response(200, {"status": booking.get("status", ""),
+                                        "pending_action": booking.get("pending_action", ""),
+                                        "revision": int(booking.get("revision", 0))})
     if method != "POST":
         return http.json_response(405, {"error": {"code": "invalid_input", "message": "Use POST."}})
     body = http.body(event)

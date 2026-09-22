@@ -158,6 +158,26 @@ def test_management_cancel_and_ics(live):
     assert "BEGIN:VEVENT" in ics["body"] and token not in ics["body"]
 
 
+def test_management_status_probe_is_read_only_and_minimal(live):
+    """The pending-page recheck probe answers with settle fields only, and
+    opening it changes nothing — it must be as safe as the page itself."""
+    res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
+        "type": "dtc", "duration": 30, "start": berlin(9, "09:00").isoformat(),
+        "name": "Ada", "email": "ada@example.com", "idempotency_key": "m-2"})
+    base = json.loads(res["body"])["manage_url"].replace("https://scheduler.test", "")
+    token = base.split("/m/")[1]
+    probe = call(public_handler.lambda_handler, f"/api/v1/manage/{token}/status")
+    assert probe.statusCode == 200
+    assert json.loads(probe["body"]) == {"status": "confirmed", "pending_action": "",
+                                         "revision": 1}
+    assert call(public_handler.lambda_handler,
+                f"/api/v1/manage/{token}/status").statusCode == 200
+    booking = store.query_bookings("2026-10-09T00:00:00+00:00", "2026-10-10T00:00:00+00:00")[0]
+    assert booking["status"] == "confirmed"
+    assert call(public_handler.lambda_handler,
+                "/api/v1/manage/nope-not-a-token/status").statusCode == 404
+
+
 def test_admin_auth_boundary(live):
     """C06: an ordinary signed-in account is still refused the console."""
     assert call(admin_handler.lambda_handler, "/admin").statusCode == 302

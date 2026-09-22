@@ -15,6 +15,35 @@
     statusEl.querySelector(".status-text").textContent = text;
   }
 
+  // A pending action finishes in the background, so the promise "this page
+  // will reflect the outcome" has to keep itself: poll the read-only status
+  // probe and reload once when the booking changes underneath us — a landed
+  // cancel flips the status, a landed reschedule bumps the revision. No
+  // reload while pending (the visitor may still be reading or typing here),
+  // and a failed probe just waits for the next tick.
+  function waitForSettle() {
+    let left = 40; // ~2.5 minutes at 4s, then hand the wait back to the visitor
+    const tick = async () => {
+      if (left <= 0) {
+        setStatus("", "The calendar is still being updated. Refresh this page in a minute to see the outcome.");
+        return;
+      }
+      left -= 1;
+      let state = null;
+      try {
+        const res = await fetch(`${api}/manage/${token}/status`);
+        if (res.ok) state = await res.json();
+      } catch (err) { /* transient; next tick retries */ }
+      if (state && (state.status !== "confirmed"
+                    || Number(state.revision) !== Number(cfg.revision))) {
+        window.location.reload();
+        return;
+      }
+      setTimeout(tick, 4000);
+    };
+    setTimeout(tick, 4000);
+  }
+
   async function postAction(action, payload, messageFor) {
     setStatus("", "Working…");
     try {
@@ -34,6 +63,7 @@
       }
       if (data.status === "pending") {
         setStatus("", "The calendar is being updated. This page will reflect the outcome — do not retry.");
+        waitForSettle();
         return;
       }
       // A reschedule rotates the management link: the server revokes the
