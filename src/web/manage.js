@@ -64,15 +64,16 @@
       if (data.status === "pending") {
         setStatus("", "The calendar is being updated. This page will reflect the outcome — do not retry.");
         waitForSettle();
-        return;
+        return "pending";
       }
       // A reschedule rotates the management link: the server revokes the
       // token this page was opened with, so a plain reload would land the
       // visitor on "Invalid link" right after their change succeeded. The
       // response carries the fresh link; cancel responses carry none and
       // keep this token valid, so they fall through to a plain reload.
-      if (data.manage_url) { window.location.href = data.manage_url; return; }
+      if (data.manage_url) { window.location.href = data.manage_url; return "done"; }
       window.location.reload();
+      return "done";
     } catch (err) {
       // A raw browser error ("Failed to fetch") says nothing actionable;
       // crafted server messages already read as sentences and pass through.
@@ -105,6 +106,16 @@
         revision: Number(cfg.revision),
         reason: document.getElementById("cancel-reason").value,
         idempotency_key: crypto.randomUUID(),
+      }).then((outcome) => {
+        if (outcome !== "pending") return;
+        // The armed row below a "do not retry" status invites the exact
+        // second click the copy rules out; one disabled in-flight button
+        // says the same thing the status line does.
+        confirmRow.hidden = true;
+        actionsRow.hidden = false;
+        const btn = actionsRow.querySelector("button");
+        btn.disabled = true;
+        btn.textContent = "Cancellation in progress…";
       });
     });
     confirmRow.querySelector("button.confirm").addEventListener("click", (ev) => {
