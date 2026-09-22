@@ -258,15 +258,21 @@ def _manage_api(event, token, action, method):
     return http.json_response(200, result)
 
 
+def _brand():
+    host = store.get_host()
+    return str(host.get("display_name", "") or "")
+
+
 def _serve_booking_page(slug, event):
     item = store.resolve_slug(slug)
     if item is None:
         return render.notice("Invalid link", "This link does not point at a bookable meeting.",
-                             status=404, link=("See bookable meetings", "/"))
+                             status=404, link=("See bookable meetings", "/"),
+                             brand_name=_brand())
     if item.get("visibility") == "disabled":
         return render.notice("Unavailable", "This meeting type no longer takes new bookings. "
                                             "Existing booking links still work.", status=410,
-                             link=("See bookable meetings", "/"))
+                             link=("See bookable meetings", "/"), brand_name=_brand())
     host = store.get_host()
     return render.booking_page(item, host.get("display_name", "Scheduling"),
                                viewer_timezone(event))
@@ -277,7 +283,8 @@ def _serve_manage_page(token):
     if capability is None or booking is None:
         # No oracle: an invalid token reads exactly like an expired one.
         return render.notice("Invalid link", "This management link is invalid or expired.",
-                             status=404, link=("See bookable meetings", "/"))
+                             status=404, link=("See bookable meetings", "/"),
+                             brand_name=_brand())
     item = store.get_event_type(booking["event_type_id"]) or {}
     durations = [booking["duration_min"]] if item.get("duration_mode") == "fixed" \
         else sorted(item.get("allowed_durations", [booking["duration_min"]]))
@@ -293,7 +300,8 @@ def _serve_receipt(operation_id):
         result = service.get_operation_status(operation_id)
     except service.BookingError:
         return render.notice("Unknown receipt", "No booking operation matches this link.",
-                             status=404, link=("See bookable meetings", "/"))
+                             status=404, link=("See bookable meetings", "/"),
+                             brand_name=_brand())
     booking = result.get("booking") if result.get("state") == "succeeded" else None
     ics_url = ""
     if booking is not None and booking.get("reference"):
@@ -312,12 +320,14 @@ def _serve_receipt_ics(operation_id):
         result = service.get_operation_status(operation_id)
     except service.BookingError:
         return render.notice("Unknown receipt", "No booking operation matches this link.",
-                             status=404, link=("See bookable meetings", "/"))
+                             status=404, link=("See bookable meetings", "/"),
+                             brand_name=_brand())
     booking = result.get("booking") if result.get("state") == "succeeded" else None
     if booking is None or not booking.get("reference"):
         return render.notice("No calendar file",
                              "This link has no confirmed booking attached.",
-                             status=404, link=("See bookable meetings", "/"))
+                             status=404, link=("See bookable meetings", "/"),
+                             brand_name=_brand())
     full = store.get_booking_by_reference(booking["reference"]) or {}
     return http.response(200, _ics_for_booking({**booking, **full}),
                          content_type="text/calendar; charset=utf-8",

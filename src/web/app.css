@@ -451,6 +451,11 @@ textarea { width: 100%; resize: vertical; }
 }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+/* Admin tabs show skeleton bars while a section fetches. */
+.tab-loading { display: grid; gap: 0.5rem; }
+
+.empty-state .btn { margin-top: 0.875rem; }
+
 /* details column */
 .details-panel .placeholder {
   display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
@@ -495,11 +500,15 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 /* Vertical-only invisible padding grows the touch target to the same 44px
  * bar the rest of the UI meets, without shifting the row's baseline;
  * horizontal padding would spill past the viewport edge when the long URL
- * fills the last line. */
+ * fills the last line. Secondary size and hard breaks: a meeting URL is
+ * reference data, not display copy. */
 .manage-summary .join-link {
   display: inline-block; padding: 0.625rem 0; margin: -0.625rem 0;
+  font-size: var(--fs-secondary); overflow-wrap: anywhere;
 }
 .hint { color: var(--muted); font-size: var(--fs-caption); display: block; margin-top: 0.25rem; }
+/* The reschedule preview turns into a live warning while the picked start is past. */
+.hint.warn { color: var(--danger); font-weight: 550; }
 .ref-chip {
   display: inline-block; font-family: ui-monospace, monospace; font-size: var(--fs-secondary);
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-chip);

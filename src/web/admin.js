@@ -94,7 +94,27 @@
     document.querySelectorAll("[data-tab]").forEach((b) => {
       b.setAttribute("aria-pressed", b.dataset.tab === section ? "true" : "false");
     });
-    loaders[section]();
+    // A slow or failed fetch must never leave the tab silently blank: show
+    // skeletons while loading, and on failure say so with a way back in.
+    const box = document.getElementById(section);
+    box.innerHTML = "";
+    const loading = el("div");
+    loading.className = "tab-loading";
+    loading.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 4; i++) loading.appendChild(el("div", "")).className = "skeleton-row";
+    box.appendChild(loading);
+    loaders[section]().catch((err) => {
+      box.innerHTML = "";
+      const panel = el("div");
+      panel.className = "empty-state";
+      panel.setAttribute("role", "alert");
+      panel.appendChild(el("p", `Could not load this section: ${err.message}`));
+      const retry = el("button", "Retry");
+      retry.className = "btn secondary sm";
+      retry.addEventListener("click", () => show(section));
+      panel.appendChild(retry);
+      box.appendChild(panel);
+    });
   }
 
   function tableView(headers) {

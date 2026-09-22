@@ -98,7 +98,7 @@ def shell(title, body, *, scripts=(), brand_name=None, head_side="", main_class=
             f"</body>\n</html>")
 
 
-def notice(title, message, *, status=400, link=None):
+def notice(title, message, *, status=400, link=None, brand_name=None):
     link_html = ""
     if link:
         label, href = link
@@ -107,7 +107,11 @@ def notice(title, message, *, status=400, link=None):
     body = (f"<div class=\"centerpiece panel\">"
             f"<span class=\"status-orb failed\">{icon('x', 'ic')}</span>"
             f"<h1>{_esc(title)}</h1><p>{_esc(message)}</p>{link_html}</div>")
-    return http.html_response(status, shell(title, body, main_class="centered"))
+    # The brand carries over when the caller knows it: a visitor whose manage
+    # link expired must still see the host they booked with, not a foreign
+    # "Scheduler" chrome no other page in the flow uses.
+    return http.html_response(status, shell(title, body, main_class="centered",
+                                            brand_name=brand_name))
 
 
 def duration_label(minutes):
@@ -135,7 +139,8 @@ def landing_page(host_name, intro, types):
                 f"<h2>{_esc(item['title'])}</h2>"
                 f"<p class=\"desc\">{_esc(item.get('description', ''))}</p>"
                 f"<span class=\"meta-chip\">{icon('clock', 'ic')}{_esc(duration)}</span>"
-                f"<a class=\"btn\" href=\"/{_esc(item['slug'])}\">Book</a></article>")
+                f"<a class=\"btn\" href=\"/{_esc(item['slug'])}\" "
+                f"aria-label=\"Book {_esc(item['title'])}\">Book</a></article>")
         body = (f"<div class=\"hero\">"
                 f"<span class=\"avatar\" aria-hidden=\"true\">{_esc(_initials(host_name))}</span>"
                 f"<div><h1>{_esc(host_name)}</h1>"
@@ -320,7 +325,9 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
         tz_label = display_tz if tz_ok else "UTC"
         reschedule = f"""<div class="panel action-card">
 <h2>{icon('calendar', 'ic')}Reschedule</h2>
-<form id="reschedule-form">
+<!-- novalidate: min/required are enforced in manage.js so the failure speaks
+     through the styled status line, not a native bubble. -->
+<form id="reschedule-form" novalidate>
 <div class="field"><label for="resched-start">New start</label>
 <input id="resched-start" type="datetime-local" value="{_esc(start_value)}" required>
 <span class="hint">Pick any exact time; shown in {_esc(tz_label)}.</span>
