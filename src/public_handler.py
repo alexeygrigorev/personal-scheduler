@@ -298,7 +298,9 @@ def _serve_receipt(operation_id):
     if booking is not None and booking.get("reference"):
         full = store.get_booking_by_reference(booking["reference"])
         booking = {**booking, "conference": (full or {}).get("conference", {})}
-    return render.receipt_page(operation=result, booking=booking)
+    host = store.get_host()
+    return render.receipt_page(operation=result, booking=booking,
+                               host_name=str(host.get("display_name", "") or ""))
 
 
 def lambda_handler(event, _context):

@@ -372,21 +372,37 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 </div>
 </div>"""
     return http.html_response(200, shell(headline, body, scripts=("manage.js",),
-                                         brand_name=None,
+                                         brand_name=host_name or None,
                                          tz_note=f"Times shown in {display_tz if tz_ok else 'UTC'}"))
 
 
-def receipt_page(*, operation, booking=None):
+def receipt_page(*, operation, booking=None, host_name=""):
     state = operation.get("state", "")
     if state == "succeeded" and booking:
+        # The operation receipt names its instants start/end while the store
+        # row calls them start_iso/end_iso; accept both so the label can
+        # never render as a bare dash pair.
+        when = {**booking,
+                "start_iso": booking.get("start_iso") or booking.get("start", ""),
+                "end_iso": booking.get("end_iso") or booking.get("end", "")}
+        what_bits = []
+        if booking.get("title"):
+            what_bits.append(str(booking["title"]) +
+                             (f" with {host_name}" if host_name else ""))
+        if booking.get("duration_min"):
+            what_bits.append(duration_label(int(booking["duration_min"])))
+        what_line = (f"<p class=\"detail-line\">{_esc(' · '.join(what_bits))}</p>"
+                     if what_bits else "")
         body = (f"<div class=\"centerpiece panel\">"
                 f"<span class=\"status-orb ok\">{icon('check', 'ic')}</span>"
                 f"<h1>Booking confirmed</h1>"
                 f"<p>Reference <span class=\"ref-chip\">{_esc(booking.get('reference', ''))}</span></p>"
-                f"<p class=\"detail-line\">{_human_when(booking)}</p>"
+                f"{what_line}"
+                f"<p class=\"detail-line\">{_human_when(when)}</p>"
                 f"<p>The confirmation email carries your management link.</p></div>")
         return http.html_response(200, shell("Booking confirmed", body,
                                              main_class="centered",
+                                             brand_name=host_name or None,
                                              tz_note=f"Times shown in "
                                                      f"{booking.get('display_tz', 'UTC')}"))
     if state in ("in_progress", "unknown"):
