@@ -429,9 +429,10 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
                 f"<p>The calendar write has an unknown outcome. Your time is protected; "
                 f"do not book again. This page reflects the outcome once known.</p></div>")
         return http.html_response(200, shell("Booking pending", body,
-                                             main_class="centered"))
+                                             main_class="centered",
+                                             brand_name=host_name or None))
     return notice("Booking failed", "The booking could not be completed. Please try again.",
-                  status=502, link=("Back to booking", "/"))
+                  status=502, link=("Back to booking", "/"), brand_name=host_name or None)
 
 
 def admin_shell(email):
