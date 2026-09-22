@@ -376,7 +376,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
                                          tz_note=f"Times shown in {display_tz if tz_ok else 'UTC'}"))
 
 
-def receipt_page(*, operation, booking=None, host_name=""):
+def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
     state = operation.get("state", "")
     if state == "succeeded" and booking:
         # The operation receipt names its instants start/end while the store
@@ -393,13 +393,22 @@ def receipt_page(*, operation, booking=None, host_name=""):
             what_bits.append(duration_label(int(booking["duration_min"])))
         what_line = (f"<p class=\"detail-line\">{_esc(' · '.join(what_bits))}</p>"
                      if what_bits else "")
+        body_inner = (f"<p class=\"detail-line\">{_human_when(when)}</p>"
+                      f"<p>The confirmation email carries your management link.</p>")
+        # The management link itself cannot be rebuilt here (tokens are only
+        # ever stored hashed), but the calendar file and the way back can.
+        actions = (f"<div class=\"form-actions\">"
+                   f"<a class=\"btn\" href=\"{_esc(ics_url)}\">{icon('download', 'ic')} "
+                   f"Add to calendar (.ics)</a>"
+                   f"<a class=\"btn secondary\" href=\"/\">Book another time</a></div>"
+                   if ics_url else "")
         body = (f"<div class=\"centerpiece panel\">"
                 f"<span class=\"status-orb ok\">{icon('check', 'ic')}</span>"
                 f"<h1>Booking confirmed</h1>"
                 f"<p>Reference <span class=\"ref-chip\">{_esc(booking.get('reference', ''))}</span></p>"
                 f"{what_line}"
-                f"<p class=\"detail-line\">{_human_when(when)}</p>"
-                f"<p>The confirmation email carries your management link.</p></div>")
+                f"{body_inner}"
+                f"{actions}</div>")
         return http.html_response(200, shell("Booking confirmed", body,
                                              main_class="centered",
                                              brand_name=host_name or None,

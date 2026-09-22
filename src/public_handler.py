@@ -295,12 +295,34 @@ def _serve_receipt(operation_id):
         return render.notice("Unknown receipt", "No booking operation matches this link.",
                              status=404, link=("See bookable meetings", "/"))
     booking = result.get("booking") if result.get("state") == "succeeded" else None
+    ics_url = ""
     if booking is not None and booking.get("reference"):
         full = store.get_booking_by_reference(booking["reference"])
         booking = {**booking, "conference": (full or {}).get("conference", {})}
+        if full:
+            ics_url = f"/receipt/{operation_id}/ics"
     host = store.get_host()
     return render.receipt_page(operation=result, booking=booking,
-                               host_name=str(host.get("display_name", "") or ""))
+                               host_name=str(host.get("display_name", "") or ""),
+                               ics_url=ics_url)
+
+
+def _serve_receipt_ics(operation_id):
+    try:
+        result = service.get_operation_status(operation_id)
+    except service.BookingError:
+        return render.notice("Unknown receipt", "No booking operation matches this link.",
+                             status=404, link=("See bookable meetings", "/"))
+    booking = result.get("booking") if result.get("state") == "succeeded" else None
+    if booking is None or not booking.get("reference"):
+        return render.notice("No calendar file",
+                             "This link has no confirmed booking attached.",
+                             status=404, link=("See bookable meetings", "/"))
+    full = store.get_booking_by_reference(booking["reference"]) or {}
+    return http.response(200, _ics_for_booking({**booking, **full}),
+                         content_type="text/calendar; charset=utf-8",
+                         headers={"content-disposition": 'attachment; filename="booking.ics"',
+                                  "cache-control": "no-store"})
 
 
 def lambda_handler(event, _context):
@@ -363,6 +385,8 @@ def lambda_handler(event, _context):
         if path.startswith("/m/") and method == "GET":
             return _serve_manage_page(path[len("/m/"):].strip("/").split("/")[0])
         if path.startswith("/receipt/") and method == "GET":
+            if path.endswith("/ics"):
+                return _serve_receipt_ics(path[len("/receipt/"):-len("/ics")].strip("/"))
             return _serve_receipt(path[len("/receipt/"):].strip("/").split("/")[0])
         if path.startswith("/") and method == "GET" and path.count("/") == 1:
             return _serve_booking_page(path.strip("/"), event)
