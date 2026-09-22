@@ -21,11 +21,29 @@
   // cancel flips the status, a landed reschedule bumps the revision. No
   // reload while pending (the visitor may still be reading or typing here),
   // and a failed probe just waits for the next tick.
+  // The outcome reload would silently discard a change submitted meanwhile,
+  // so the reschedule submit locks while any action is pending and comes
+  // back if the wait gives up. The cancel row manages its own lock: its
+  // give-up copy still rules out a retry.
+  function lockReschedule() {
+    const btn = document.querySelector('#reschedule-form button[type="submit"]');
+    if (!btn || btn.dataset.pendingLock) return;
+    btn.dataset.pendingLock = "1";
+    btn.disabled = true;
+  }
+  function unlockPendingLocks() {
+    document.querySelectorAll("[data-pending-lock]").forEach((b) => {
+      b.disabled = false;
+      delete b.dataset.pendingLock;
+    });
+  }
+
   function waitForSettle() {
     let left = 40; // ~2.5 minutes at 4s, then hand the wait back to the visitor
     const tick = async () => {
       if (left <= 0) {
         setStatus("", "The calendar is still being updated. Refresh this page in a minute to see the outcome.");
+        unlockPendingLocks();
         return;
       }
       left -= 1;
@@ -63,6 +81,12 @@
       }
       if (data.status === "pending") {
         setStatus("", "The calendar is being updated. This page will reflect the outcome — do not retry.");
+        // Hiding the armed confirm row (or any control that held focus) must
+        // not dump a keyboard user back to <body>; the status sentence is
+        // what to read next.
+        statusEl.setAttribute("tabindex", "-1");
+        statusEl.focus({ preventScroll: true });
+        lockReschedule();
         waitForSettle();
         return "pending";
       }
