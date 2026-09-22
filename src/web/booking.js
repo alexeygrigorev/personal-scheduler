@@ -295,6 +295,12 @@
       li.appendChild(btn);
       list.appendChild(li);
     }
+    // One tab stop for the whole list — a busy day is otherwise a dozen Tab
+    // presses before the form. The selected slot anchors; else the first.
+    const buttons = [...list.querySelectorAll("button")];
+    const anchor =
+      buttons.find((b) => b.getAttribute("aria-pressed") === "true") || buttons[0];
+    for (const b of buttons) b.tabIndex = b === anchor ? 0 : -1;
     // Re-rendering replaces the clicked button, which would drop a keyboard
     // user's focus to <body>; put it on the control they were using.
     if (restoreFocus) {
@@ -529,6 +535,29 @@
     } else if (ev.key === "Home" || ev.key === "End") {
       const cells = grid.querySelectorAll("button[data-day]");
       next = ev.key === "Home" ? cells[0] : cells[cells.length - 1];
+    } else {
+      return;
+    }
+    if (!next) return;
+    ev.preventDefault();
+    btn.tabIndex = -1;
+    next.tabIndex = 0;
+    next.focus({ preventScroll: true });
+  });
+
+  // The times list makes the same bargain as the day grid: one tab stop for
+  // the whole list. It is a single column, so every arrow steps one slot and
+  // Home/End jump to the ends.
+  $("time-list").addEventListener("keydown", (ev) => {
+    const btn = ev.target.closest("button");
+    if (!btn) return;
+    const slots = [...ev.currentTarget.querySelectorAll("button")];
+    const deltas = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 };
+    let next;
+    if (ev.key in deltas) {
+      next = slots[slots.indexOf(btn) + deltas[ev.key]];
+    } else if (ev.key === "Home" || ev.key === "End") {
+      next = ev.key === "Home" ? slots[0] : slots[slots.length - 1];
     } else {
       return;
     }
