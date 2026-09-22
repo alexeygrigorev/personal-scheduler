@@ -323,7 +323,8 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 <form id="reschedule-form">
 <div class="field"><label for="resched-start">New start</label>
 <input id="resched-start" type="datetime-local" value="{_esc(start_value)}" required>
-<span class="hint">Pick any exact time; shown in {_esc(tz_label)}.</span></div>
+<span class="hint">Pick any exact time; shown in {_esc(tz_label)}.</span>
+<span class="hint" id="resched-preview" aria-live="polite"></span></div>
 <div class="field"><label for="resched-duration">Duration</label>
 <select id="resched-duration">{duration_options}</select></div>
 <div class="form-actions"><button type="submit" class="btn">Reschedule</button></div>
@@ -349,7 +350,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
     joining = (booking.get("conference", {}) or {}).get("link", "") or "See your calendar invitation."
     if (booking.get("conference", {}) or {}).get("status") == "pending":
         joining = "Joining details are being prepared."
-    joining_html = (f"<a href=\"{_esc(joining)}\">{_esc(joining)}</a>"
+    joining_html = (f"<a class=\"join-link\" href=\"{_esc(joining)}\">{_esc(joining)}</a>"
                     if str(joining).startswith("http") else _esc(joining))
     cfg = {"token": token, "apiBase": "/api/v1",
            "revision": booking.get("revision", 0), "duration": booking.get("duration_min", 30),

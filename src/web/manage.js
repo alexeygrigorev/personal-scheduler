@@ -98,6 +98,27 @@
       ts = naive - zoneOffsetMinutes(new Date(ts), zone) * 60000;
       return new Date(ts).toISOString();
     }
+    // The native input renders in the browser's locale (often 12-hour),
+    // which reads oddly next to the 24-hour times on this page. The preview
+    // restates the picked wall clock in this page's format and zone, so the
+    // instant that will be sent is never ambiguous.
+    const startInput = document.getElementById("resched-start");
+    const previewEl = document.getElementById("resched-preview");
+    function updatePreview() {
+      if (!previewEl) return;
+      const zone = cfg.timezone || "UTC";
+      const instant = startInput.value ? wallToIso(startInput.value, zone) : null;
+      if (!instant) { previewEl.textContent = ""; return; }
+      const shown = new Date(instant).toLocaleString([], {
+        weekday: "short", day: "numeric", month: "short",
+        hour: "2-digit", minute: "2-digit",
+        hour12: localStorage.getItem("sched_clock") === "12",
+        timeZone: zone,
+      });
+      previewEl.textContent = `→ ${shown} (${zone})`;
+    }
+    startInput.addEventListener("input", updatePreview);
+    updatePreview();
     reschedForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
       const raw = document.getElementById("resched-start").value;

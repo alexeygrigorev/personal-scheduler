@@ -175,11 +175,13 @@
     const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: state.timezone });
     while (cursor <= end) {
       const key = cursor.toISOString().slice(0, 10);
+      const isToday = key === todayKey;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = String(cursor.getUTCDate());
-      if (key === todayKey) btn.classList.add("today");
-      const label = new Date(key + "T12:00:00Z").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+      if (isToday) { btn.classList.add("today"); btn.title = "Today"; }
+      const label = new Date(key + "T12:00:00Z").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })
+        + (isToday ? " (today)" : "");
       if (available.has(key)) {
         btn.setAttribute("aria-pressed", key === state.selectedDay ? "true" : "false");
         btn.setAttribute("aria-label", `Bookable: ${label}`);
