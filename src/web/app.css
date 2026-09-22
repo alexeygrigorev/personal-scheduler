@@ -737,3 +737,25 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   .site-head-side { flex-basis: 100%; justify-content: space-between; }
   .site-head-side .whoami { max-width: 16rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* ---------- print ---------- */
+
+/* The receipt family is the page people print or save as PDF: the sheet
+ * keeps the record — status badge, reference, when, joining — and drops
+ * every screen affordance. Sticky header, footer, wash, shadows, action
+ * rows, buttons, and live status/instruction boxes are screen-only. */
+@media print {
+  html { background: #fff; }
+  /* min-height:100vh plus the flex column manufactures a blank trailing
+   * page on paper; the sheet needs neither. */
+  body { display: block; min-height: 0; color: #000; }
+  .site-head, .site-foot, .skip,
+  .form-actions, .action-card, .btn, .status { display: none !important; }
+  main.wrap { padding: 0; }
+  a { color: inherit; }
+  .panel, .centerpiece { box-shadow: none; break-inside: avoid; }
+  .centerpiece .status-orb {
+    animation: none;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}

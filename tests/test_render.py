@@ -49,6 +49,24 @@ def test_receipt_settled_does_not_reload():
     assert 'http-equiv="refresh"' not in resp["body"]
 
 
+def test_receipt_offers_print():
+    # The receipt is the artifact invitees archive: printing gets a labeled
+    # control instead of a hidden Ctrl+P.
+    resp = _receipt({"link": "https://meet.example.com/bk-0f41"})
+    assert "window.print()" in resp["body"]
+    assert 'class="btn secondary"' in resp["body"]
+
+
+def test_print_stylesheet_strips_the_sheet_to_the_record():
+    # The print button promises a clean sheet; the stylesheet has to back
+    # that by hiding chrome and action rows on paper.
+    css = (render.WEB_DIR / "app.css").read_text()
+    assert "@media print" in css
+    block = css.split("@media print", 1)[1]
+    for selector in (".site-head", ".site-foot", ".form-actions"):
+        assert selector in block
+
+
 def _booking_page(questions=()):
     et = {"id": "et-chat", "slug": "career-chat", "title": "Career chat",
           "description": "Bring your questions.", "duration_mode": "selectable",

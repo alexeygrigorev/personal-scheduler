@@ -56,6 +56,9 @@ _ICON_PATHS = {
     "right": '<polyline points="9 18 15 12 9 6"/>',
     "download": ('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'
                  '<polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+    "print": ('<polyline points="6 9 6 2 18 2 18 9"/>'
+              '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5'
+              'a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>'),
 }
 
 
@@ -434,11 +437,18 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
                       f"<p>The confirmation email carries your management link.</p>")
         # The management link itself cannot be rebuilt here (tokens are only
         # ever stored hashed), but the calendar file and the way back can.
-        actions = (f"<div class=\"form-actions\">"
-                   f"<a class=\"btn\" href=\"{_esc(ics_url)}\">{icon('download', 'ic')} "
-                   f"Add to calendar (.ics)</a>"
-                   f"<a class=\"btn secondary\" href=\"/\">Book another time</a></div>"
-                   if ics_url else "")
+        # The receipt is the artifact invitees archive, so printing gets a
+        # labeled control; the print stylesheet reduces the sheet to the
+        # record itself.
+        action_bits = []
+        if ics_url:
+            action_bits.append(f"<a class=\"btn\" href=\"{_esc(ics_url)}\">"
+                               f"{icon('download', 'ic')} Add to calendar (.ics)</a>")
+        action_bits.append(f"<button type=\"button\" class=\"btn secondary\" "
+                           f"onclick=\"window.print()\">{icon('print', 'ic')} "
+                           f"Print / save PDF</button>")
+        action_bits.append("<a class=\"btn secondary\" href=\"/\">Book another time</a>")
+        actions = f"<div class=\"form-actions\">{''.join(action_bits)}</div>"
         body = (f"<div class=\"centerpiece panel\">"
                 f"<span class=\"status-orb ok\">{icon('check', 'ic')}</span>"
                 f"<h1>Booking confirmed</h1>"
