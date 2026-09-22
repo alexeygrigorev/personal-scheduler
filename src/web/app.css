@@ -502,7 +502,8 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
  * horizontal padding would spill past the viewport edge when the long URL
  * fills the last line. Secondary size and hard breaks: a meeting URL is
  * reference data, not display copy. */
-.manage-summary .join-link {
+.manage-summary .join-link,
+.centerpiece .join-link {
   display: inline-block; padding: 0.625rem 0; margin: -0.625rem 0;
   font-size: var(--fs-secondary); overflow-wrap: anywhere;
 }
