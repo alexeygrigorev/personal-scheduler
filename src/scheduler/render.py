@@ -441,4 +441,4 @@ def admin_shell(email):
 <div id="admin-root" data-config='{json.dumps({"zones": list(COMMON_ZONES)})}'></div>"""
     return http.html_response(200, shell("Admin", body, scripts=("admin.js",),
                                          head_side=side,
-                                         tz_note="Times shown in your timezone"))
+                                         tz_note="Times shown in the Settings timezone"))

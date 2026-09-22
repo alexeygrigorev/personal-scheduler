@@ -28,14 +28,34 @@
     return b;
   }
 
+  // The schedule's zone (Settings) governs every time shown here, and the
+  // 12/24-hour choice follows the same localStorage key the booking page
+  // persists, so the console reads like the pages visitors see.
+  let settingsCache = null;
+  async function hostSettings() {
+    if (!settingsCache) {
+      try { settingsCache = await call("/settings"); }
+      catch (err) { settingsCache = {}; }
+      const tz = (settingsCache.host || {}).timezone || "";
+      const note = document.getElementById("tz-note");
+      if (tz && note) note.textContent = `Times shown in ${tz} — the zone from Settings`;
+    }
+    return settingsCache || {};
+  }
+
   function fmtWhen(iso) {
     const d = new Date(iso);
     if (isNaN(d)) return String(iso || "");
+    const host = settingsCache && (settingsCache.host || {});
     return d.toLocaleString([], {
       weekday: "short", day: "numeric", month: "short",
       hour: "2-digit", minute: "2-digit",
+      hour12: localStorage.getItem("sched_clock") === "12",
+      ...(host.timezone ? { timeZone: host.timezone } : {}),
     });
   }
+
+  const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
   function fmtDuration(mins) {
     if (mins < 60) return `${mins} min`;
@@ -102,10 +122,16 @@
   }
 
   async function loadOverview() {
-    const data = await call("/overview");
+    const [data, settings, typeData, upcoming] = await Promise.all([
+      call("/overview"),
+      hostSettings(),
+      call("/event-types").catch(() => ({})),
+      call("/bookings?status=confirmed").catch(() => ({})),
+    ]);
+    const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
+    const health = data.health || {};
     const box = document.getElementById("overview");
     box.innerHTML = "";
-    const health = data.health || {};
     const grid = el("div");
     grid.className = "stat-grid";
     grid.appendChild(statTile("Upcoming bookings", String(data.upcoming_count)));
@@ -124,6 +150,34 @@
       loadOverview();
     });
     box.appendChild(btn);
+    // The tiles alone left the overview half empty; the next few bookings
+    // give the landing tab real content and a path into the full list.
+    const panel = el("div");
+    panel.className = "panel next-bookings";
+    panel.appendChild(el("h2", "Next bookings"));
+    const list = (upcoming.bookings || []).slice(0, 5);
+    if (!list.length) {
+      const empty = el("p", "Nothing booked ahead.");
+      empty.className = "hint";
+      panel.appendChild(empty);
+    }
+    for (const b of list) {
+      const row = el("div");
+      row.className = "next-booking-row";
+      const when = el("strong", fmtWhen(b.start_iso));
+      row.appendChild(when);
+      const who = el("span", `${b.invitee_name || ""} · ${titles.get(b.event_type_id) || b.event_type_id}`);
+      who.className = "cell-break";
+      row.appendChild(who);
+      panel.appendChild(row);
+    }
+    if ((upcoming.bookings || []).length > 5) {
+      const more = el("button", "View all bookings");
+      more.className = "btn sm secondary";
+      more.addEventListener("click", () => show("bookings"));
+      panel.appendChild(more);
+    }
+    box.appendChild(panel);
   }
 
   async function loadTypes() {
@@ -134,6 +188,8 @@
     for (const t of data.event_types || []) {
       const row = el("tr");
       const titleCell = el("td", t.title);
+      // Admin titles are free text: one long word must wrap, not clip.
+      titleCell.className = "cell-break";
       titleCell.dataset.label = "Title";
       row.appendChild(titleCell);
       const slug = el("td", t.slug);
@@ -191,7 +247,8 @@
   async function loadBookings() {
     const [data, typeData] = await Promise.all([
       call("/bookings?status=confirmed"),
-      call("/event-types").catch(() => ({})),
+      Promise.all([hostSettings(), call("/event-types").catch(() => ({}))])
+        .then(([, types]) => types),
     ]);
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const box = document.getElementById("bookings");
@@ -218,7 +275,7 @@
       row.appendChild(invitee);
       const status = el("td");
       status.dataset.label = "Status";
-      status.appendChild(badge(b.status === "confirmed" ? "ok" : "", b.status));
+      status.appendChild(badge(b.status === "confirmed" ? "ok" : "", cap(b.status)));
       row.appendChild(status);
       const actions = el("td");
       actions.className = "actions";
@@ -270,7 +327,7 @@
   }
 
   async function loadSettings() {
-    const data = await call("/settings");
+    const data = await hostSettings();
     const box = document.getElementById("settings");
     box.innerHTML = "";
     const host = data.host || {};
@@ -281,7 +338,7 @@
     const fields = [
       ["display_name", "Display name", "Shown as the host on public pages."],
       ["timezone", "Timezone", "Zone the schedule and admin times follow."],
-      ["public_base_url", "Public base URL", "Canonical origin visitors see."],
+      ["public_base_url", "Public base URL", "Canonical origin visitors will see."],
       ["contact_fallback", "Contact fallback", "Shown when booking is paused."],
       ["host_notification_email", "Host notification email", "Where new-booking notices go."],
     ];
@@ -327,6 +384,8 @@
       fields.forEach(([name]) => { payload[name] = form.elements[name].value; });
       try {
         await call("/settings", { method: "PUT", body: JSON.stringify(payload) });
+        settingsCache = null;
+        await hostSettings();
         note.textContent = "Saved";
         note.classList.add("visible");
         setTimeout(() => note.classList.remove("visible"), 2400);

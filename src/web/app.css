@@ -630,7 +630,18 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 .admin-form { max-width: 34rem; }
 .admin-form .hint { color: var(--muted); font-size: var(--fs-caption); display: block; margin-top: 0.25rem; }
 
-.settings-card { max-width: 36rem; }
+.settings-card { max-width: 36rem; margin-inline: auto; }
+.next-bookings { margin-top: 0.25rem; }
+.next-bookings h2 { font-size: 1.0625rem; margin: 0 0 0.375rem; }
+.next-booking-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 0.125rem 1rem; padding: 0.5625rem 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-secondary); color: var(--muted);
+}
+.next-booking-row:first-of-type { border-top: 0; }
+.next-booking-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.next-bookings .btn { margin-top: 0.625rem; }
 .settings-card .btn { margin-top: 0.75rem; }
 
 .saved-note {
