@@ -189,9 +189,19 @@ def booking_page(item, host_name, viewer_tz="UTC"):
     for question in item.get("questions", []):
         qid = _esc(question.get("id", ""))
         required = " required" if question.get("required") else ""
+        limit = int(question.get("max_length", 2000))
+        # A 500-character answer only ever shows its tail in a one-line
+        # input; long prompts get a reviewable textarea and a live counter.
+        if limit >= 200:
+            control = (f"<textarea id=\"q-{qid}\" data-question=\"{qid}\" rows=\"3\" "
+                       f"maxlength=\"{limit}\"{required}></textarea>")
+            counter = "<span class=\"char-count\" aria-live=\"polite\"></span>"
+        else:
+            control = f"<input id=\"q-{qid}\" data-question=\"{qid}\" maxlength=\"{limit}\"{required}>"
+            counter = ""
         questions.append(
             f"<div class=\"field\"><label for=\"q-{qid}\">{_esc(question.get('label', qid))}</label>"
-            f"<input id=\"q-{qid}\" data-question=\"{qid}\" maxlength=\"{int(question.get('max_length', 2000))}\"{required}>"
+            f"{control}{counter}"
             f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
     valid_viewer_tz = viewer_tz if is_valid_zone(viewer_tz) else "UTC"
     cfg = {"slug": item["slug"], "apiBase": "/api/v1", "defaultDuration": default,
@@ -257,11 +267,11 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 <div class="summary-card">{icon('clock', 'ic')}<span id="selection-summary" aria-live="polite">No time selected yet.</span></div>
 <form id="details-form" novalidate>
 <div class="field"><label for="f-name">Name</label>
-<input id="f-name" autocomplete="name" required><span class="error" id="err-name" role="alert"></span></div>
+<input id="f-name" autocomplete="name" maxlength="200" required><span class="error" id="err-name" role="alert"></span></div>
 <div class="field"><label for="f-email">Email</label>
-<input id="f-email" type="email" autocomplete="email" required><span class="error" id="err-email" role="alert"></span></div>
+<input id="f-email" type="email" autocomplete="email" maxlength="320" required><span class="error" id="err-email" role="alert"></span></div>
 <div class="field"><label for="f-notes">Purpose / agenda</label>
-<textarea id="f-notes" rows="3"></textarea><span class="error" id="err-notes" role="alert"></span></div>
+<textarea id="f-notes" rows="3" maxlength="2000"></textarea><span class="char-count" aria-live="polite"></span><span class="error" id="err-notes" role="alert"></span></div>
 {''.join(questions)}
 <p class="form-note">Availability is confirmed on submission — a selected slot is not held while you type.</p>
 <div class="form-actions">
