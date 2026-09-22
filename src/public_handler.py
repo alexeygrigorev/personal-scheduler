@@ -281,8 +281,11 @@ def _serve_manage_page(token):
     item = store.get_event_type(booking["event_type_id"]) or {}
     durations = [booking["duration_min"]] if item.get("duration_mode") == "fixed" \
         else sorted(item.get("allowed_durations", [booking["duration_min"]]))
+    host = store.get_host()
     return render.manage_page(booking=booking, token=token,
-                              ics_url=f"/api/v1/manage/{token}/ics", durations=durations)
+                              ics_url=f"/api/v1/manage/{token}/ics", durations=durations,
+                              event_title=str(item.get("title", "") or ""),
+                              host_name=str(host.get("display_name", "") or ""))
 
 
 def _serve_receipt(operation_id):
