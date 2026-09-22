@@ -105,8 +105,15 @@
     renderTimes([]);
   }
 
+  function renderMonthLabel() {
+    $("month-label").textContent = state.month.toLocaleDateString([], { month: "long", year: "numeric", timeZone: "UTC" });
+  }
+
   function renderEmptyMonth(message) {
     timesHead.hidden = true;
+    // Only renderDays would otherwise name the month, so an empty month (or a
+    // failed availability load) left the nav arrows around a blank label.
+    renderMonthLabel();
     const grid = $("day-grid");
     grid.innerHTML = "";
     // The status box above already says there is nothing bookable; this line
@@ -212,7 +219,7 @@
       grid.appendChild(btn);
       cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
-    $("month-label").textContent = state.month.toLocaleDateString([], { month: "long", year: "numeric", timeZone: "UTC" });
+    renderMonthLabel();
   }
 
   function renderTimes(slots, { restoreFocus = false } = {}) {
