@@ -504,14 +504,15 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 }
 .manage-summary .row-line:last-child { border-bottom: 0; }
 .manage-summary .label { color: var(--muted); font-size: var(--fs-secondary); flex: none; width: 5.5rem; }
-/* Vertical-only invisible padding grows the touch target to the same 44px
- * bar the rest of the UI meets, without shifting the row's baseline;
- * horizontal padding would spill past the viewport edge when the long URL
- * fills the last line. Secondary size and hard breaks: a meeting URL is
- * reference data, not display copy. */
+/* Invisible vertical padding plus the shared 2.75rem floor grow the touch
+ * target to the same 44px bar the rest of the UI meets, without shifting
+ * the row's baseline; horizontal padding would spill past the viewport edge
+ * when the long URL fills the last line. Secondary size and hard breaks: a
+ * meeting URL is reference data, not display copy. */
 .manage-summary .join-link,
 .centerpiece .join-link {
-  display: inline-block; padding: 0.625rem 0; margin: -0.625rem 0;
+  display: inline-flex; align-items: center; min-height: 2.75rem;
+  padding: 0.625rem 0; margin: -0.625rem 0;
   font-size: var(--fs-secondary); overflow-wrap: anywhere;
 }
 .hint { color: var(--muted); font-size: var(--fs-caption); display: block; margin-top: 0.25rem; }
