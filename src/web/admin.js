@@ -44,7 +44,12 @@
   }
 
   function fmtWhen(iso) {
-    const d = new Date(iso);
+    if (!iso) return "";
+    // Stored instants always carry a UTC offset; a zoneless value would be
+    // read as browser-local and shift with whoever opens the console, so it
+    // is pinned to UTC first and the Settings zone below stays authoritative.
+    const text = /[zZ]$|[+-]\d{2}:\d{2}$/.test(String(iso)) ? String(iso) : `${iso}Z`;
+    const d = new Date(text);
     if (isNaN(d)) return String(iso || "");
     const host = settingsCache && (settingsCache.host || {});
     return d.toLocaleString([], {
@@ -211,17 +216,44 @@
       actions.className = "actions";
       const stack = el("div");
       stack.className = "actions-stack";
-      const toggle = el("button", t.visibility === "disabled" ? "Enable" : "Disable");
-      toggle.className = "btn sm " + (t.visibility === "disabled" ? "secondary" : "danger");
+      const disabling = t.visibility !== "disabled";
+      const toggle = el("button", disabling ? "Disable" : "Enable");
+      toggle.className = "btn sm " + (disabling ? "danger" : "secondary");
+      // Hiding a type takes bookings off the public site, so it gets the
+      // same two-step arm as a cancel; failure surfaces on the button
+      // instead of vanishing into an unhandled rejection.
+      toggle.setAttribute("aria-live", "polite");
+      let armTimer = 0;
+      const disarm = () => {
+        clearTimeout(armTimer);
+        delete toggle.dataset.armed;
+        toggle.classList.remove("armed");
+        toggle.textContent = disabling ? "Disable" : "Enable";
+      };
       toggle.addEventListener("click", async () => {
-        await call(`/event-types/${t.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            visibility: t.visibility === "disabled" ? "listed" : "disabled",
-            expected_version: t.version,
-          }),
-        });
-        loadTypes();
+        if (disabling && !toggle.dataset.armed) {
+          toggle.dataset.armed = "1";
+          toggle.classList.add("armed");
+          toggle.textContent = "Really disable?";
+          armTimer = setTimeout(disarm, 4000);
+          return;
+        }
+        disarm();
+        toggle.disabled = true;
+        try {
+          await call(`/event-types/${t.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              visibility: disabling ? "disabled" : "listed",
+              expected_version: t.version,
+            }),
+          });
+          loadTypes();
+        } catch (err) {
+          toggle.disabled = false;
+          toggle.textContent = err.message || "Failed — try again";
+          setTimeout(() => { toggle.textContent = disabling ? "Disable" : "Enable"; }, 4000);
+        }
       });
       stack.appendChild(toggle);
       const preview = el("a", "Preview");
