@@ -22,6 +22,48 @@
     return node;
   }
 
+  function badge(kind, text) {
+    const b = el("span", text);
+    b.className = "badge" + (kind ? " " + kind : "");
+    return b;
+  }
+
+  function fmtWhen(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso || "");
+    return d.toLocaleString([], {
+      weekday: "short", day: "numeric", month: "short",
+      hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  function fmtDuration(mins) {
+    if (mins < 60) return `${mins} min`;
+    const hours = mins / 60;
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+
+  function statTile(label, valueContent, meta) {
+    const tile = el("div");
+    tile.className = "stat";
+    tile.appendChild(el("p", label)).className = "stat-label";
+    const value = el("p");
+    value.className = "stat-value";
+    if (typeof valueContent === "string") value.appendChild(el("span", valueContent));
+    else value.appendChild(valueContent);
+    tile.appendChild(value);
+    if (meta) tile.appendChild(el("p", meta)).className = "stat-meta";
+    return tile;
+  }
+
+  // "Not verified yet" is a neutral state, not a failure: red is reserved
+  // for connections that were checked and failed.
+  function healthBadge(state) {
+    if (state === "ok") return badge("ok", "Connected");
+    if (state === "error" || state === "failed") return badge("danger", "Error");
+    return badge("", "Not verified");
+  }
+
   function show(section) {
     document.querySelectorAll(".admin-section").forEach((s) => { s.hidden = s.id !== section; });
     document.querySelectorAll("[data-tab]").forEach((b) => {
@@ -30,16 +72,51 @@
     loaders[section]();
   }
 
+  function tableView(headers) {
+    const wrap = el("div");
+    wrap.className = "table-scroll";
+    const table = el("table");
+    table.className = "admin";
+    const thead = el("thead");
+    const head = el("tr");
+    headers.forEach(([label, cls]) => {
+      const th = el("th", label);
+      if (cls) th.className = cls;
+      head.appendChild(th);
+    });
+    thead.appendChild(head);
+    table.appendChild(thead);
+    const tbody = el("tbody");
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return { wrap, tbody };
+  }
+
+  function emptyRow(tbody, span, text) {
+    const row = el("tr");
+    const cell = el("td", text);
+    cell.colSpan = span;
+    cell.className = "table-empty";
+    row.appendChild(cell);
+    tbody.appendChild(row);
+  }
+
   async function loadOverview() {
     const data = await call("/overview");
     const box = document.getElementById("overview");
     box.innerHTML = "";
     const health = data.health || {};
-    box.appendChild(el("p", `Upcoming bookings: ${data.upcoming_count}`));
-    box.appendChild(el("p", `Pending operations: ${data.pending_operations}`));
-    box.appendChild(el("p", `Calendar: ${health.calendar || "unknown"} (last check ${health.last_check || "never"})`));
-    box.appendChild(el("p", `Dapier: ${health.dapier || "unknown"}`));
-    box.appendChild(el("p", `New bookings: ${data.paused ? "PAUSED" : "open"}`));
+    const grid = el("div");
+    grid.className = "stat-grid";
+    grid.appendChild(statTile("Upcoming bookings", String(data.upcoming_count)));
+    grid.appendChild(statTile("Pending operations", String(data.pending_operations),
+      data.pending_operations > 0 ? "Being reconciled with the calendar" : ""));
+    grid.appendChild(statTile("Calendar", healthBadge(health.calendar || "unknown"),
+      health.last_check ? `Last check ${fmtWhen(health.last_check)}` : "Not checked yet"));
+    grid.appendChild(statTile("Dapier", healthBadge(health.dapier || "unknown"),
+      "Provider connection"));
+    grid.appendChild(statTile("New bookings", badge(data.paused ? "danger" : "ok", data.paused ? "Paused" : "Open")));
+    box.appendChild(grid);
     const btn = el("button", data.paused ? "Resume new bookings" : "Pause new bookings");
     btn.className = "btn secondary";
     btn.addEventListener("click", async () => {
@@ -53,20 +130,33 @@
     const data = await call("/event-types");
     const box = document.getElementById("types");
     box.innerHTML = "";
-    const table = el("table");
-    table.className = "admin";
-    const head = el("tr");
-    ["Title", "Slug", "Duration", "Visibility", ""].forEach((h) => head.appendChild(el("th", h)));
-    table.appendChild(head);
+    const { wrap, tbody } = tableView([["Title", ""], ["Slug", "col-slug"], ["Duration", ""], ["Visibility", ""], ["", "col-actions"]]);
     for (const t of data.event_types || []) {
       const row = el("tr");
-      row.appendChild(el("td", t.title));
-      row.appendChild(el("td", t.slug));
-      row.appendChild(el("td", t.duration_mode === "fixed" ? `${t.fixed_duration_min} min` : (t.allowed_durations || []).join("/")));
-      row.appendChild(el("td", t.visibility));
+      const titleCell = el("td", t.title);
+      titleCell.dataset.label = "Title";
+      row.appendChild(titleCell);
+      const slug = el("td", t.slug);
+      slug.className = "col-slug";
+      slug.dataset.label = "Slug";
+      row.appendChild(slug);
+      const duration = t.duration_mode === "fixed"
+        ? fmtDuration(t.fixed_duration_min)
+        : (t.allowed_durations || []).map(fmtDuration).join(" / ");
+      const durationCell = el("td", duration);
+      durationCell.dataset.label = "Duration";
+      row.appendChild(durationCell);
+      const vis = el("td");
+      vis.dataset.label = "Visibility";
+      vis.appendChild(badge(t.visibility === "disabled" ? "" : "ok",
+        t.visibility === "disabled" ? "Disabled" : "Listed"));
+      row.appendChild(vis);
       const actions = el("td");
+      actions.className = "actions";
+      const stack = el("div");
+      stack.className = "actions-stack";
       const toggle = el("button", t.visibility === "disabled" ? "Enable" : "Disable");
-      toggle.className = "btn secondary";
+      toggle.className = "btn sm " + (t.visibility === "disabled" ? "secondary" : "danger");
       toggle.addEventListener("click", async () => {
         await call(`/event-types/${t.id}`, {
           method: "PUT",
@@ -77,48 +167,106 @@
         });
         loadTypes();
       });
-      actions.appendChild(toggle);
+      stack.appendChild(toggle);
       const preview = el("a", "Preview");
       preview.href = `/${t.slug}`;
-      preview.style.marginLeft = "0.5rem";
-      actions.appendChild(preview);
+      preview.className = "btn sm secondary";
+      stack.appendChild(preview);
+      actions.appendChild(stack);
       row.appendChild(actions);
-      table.appendChild(row);
+      tbody.appendChild(row);
     }
-    box.appendChild(table);
+    if (!(data.event_types || []).length) emptyRow(tbody, 5, "No event types yet.");
+    box.appendChild(wrap);
+  }
+
+  function flashError(container, message) {
+    const note = el("span", message);
+    note.className = "saved-note error visible";
+    note.setAttribute("role", "alert");
+    container.prepend(note);
+    setTimeout(() => note.remove(), 4000);
   }
 
   async function loadBookings() {
-    const data = await call("/bookings?status=confirmed");
+    const [data, typeData] = await Promise.all([
+      call("/bookings?status=confirmed"),
+      call("/event-types").catch(() => ({})),
+    ]);
+    const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const box = document.getElementById("bookings");
     box.innerHTML = "";
-    const table = el("table");
-    table.className = "admin";
-    const head = el("tr");
-    ["When", "Type", "Invitee", "Status", ""].forEach((h) => head.appendChild(el("th", h)));
-    table.appendChild(head);
+    const { wrap, tbody } = tableView([["When", ""], ["Type", "col-type"], ["Invitee", ""], ["Status", ""], ["", "col-actions"]]);
     for (const b of data.bookings || []) {
       const row = el("tr");
-      row.appendChild(el("td", b.start_iso));
-      row.appendChild(el("td", b.event_type_id));
-      row.appendChild(el("td", `${b.invitee_name} <${b.invitee_email}>`));
-      row.appendChild(el("td", b.status));
+      const when = el("td", fmtWhen(b.start_iso));
+      when.dataset.label = "When";
+      row.appendChild(when);
+      const type = el("td", titles.get(b.event_type_id) || b.event_type_id);
+      type.className = "col-type";
+      type.dataset.label = "Type";
+      row.appendChild(type);
+      const invitee = el("td");
+      invitee.dataset.label = "Invitee";
+      const person = el("div");
+      person.className = "invitee-main";
+      person.appendChild(el("strong", b.invitee_name));
+      const email = el("div", b.invitee_email);
+      email.className = "cell-break";
+      person.appendChild(email);
+      invitee.appendChild(person);
+      row.appendChild(invitee);
+      const status = el("td");
+      status.dataset.label = "Status";
+      status.appendChild(badge(b.status === "confirmed" ? "ok" : "", b.status));
+      row.appendChild(status);
       const actions = el("td");
+      actions.className = "actions";
+      const stack = el("div");
+      stack.className = "actions-stack";
       const cancel = el("button", "Cancel");
-      cancel.className = "btn secondary";
+      cancel.className = "btn sm danger";
+      // Two-step inline confirm, matching the manage page: the first click
+      // arms, the second commits, and the arm expires (or Escape disarms)
+      // so a stray double-click cannot cancel a booking.
+      const disarm = () => {
+        cancel.dataset.armed = "0";
+        cancel.classList.remove("armed");
+        cancel.textContent = "Cancel";
+        cancel.removeAttribute("aria-label");
+      };
       cancel.addEventListener("click", async () => {
-        if (!window.confirm(`Cancel ${b.reference}?`)) return;
-        await call(`/bookings/${b.id}/cancel`, {
-          method: "POST",
-          body: JSON.stringify({ revision: b.revision, idempotency_key: crypto.randomUUID() }),
-        });
-        loadBookings();
+        if (cancel.dataset.armed !== "1") {
+          cancel.dataset.armed = "1";
+          cancel.classList.add("armed");
+          cancel.textContent = "Confirm?";
+          cancel.setAttribute("aria-label", `Confirm cancel of ${b.reference}`);
+          setTimeout(() => { if (cancel.dataset.armed === "1") disarm(); }, 4000);
+          return;
+        }
+        cancel.disabled = true;
+        try {
+          await call(`/bookings/${b.id}/cancel`, {
+            method: "POST",
+            body: JSON.stringify({ revision: b.revision, idempotency_key: crypto.randomUUID() }),
+          });
+          loadBookings();
+        } catch (err) {
+          disarm();
+          cancel.disabled = false;
+          flashError(box, err.message);
+        }
       });
-      actions.appendChild(cancel);
+      cancel.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape" && cancel.dataset.armed === "1") disarm();
+      });
+      stack.appendChild(cancel);
+      actions.appendChild(stack);
       row.appendChild(actions);
-      table.appendChild(row);
+      tbody.appendChild(row);
     }
-    box.appendChild(table);
+    if (!(data.bookings || []).length) emptyRow(tbody, 5, "No confirmed bookings.");
+    box.appendChild(wrap);
   }
 
   async function loadSettings() {
@@ -126,28 +274,72 @@
     const box = document.getElementById("settings");
     box.innerHTML = "";
     const host = data.host || {};
+    const card = el("div");
+    card.className = "panel settings-card";
     const form = el("form");
-    const fields = ["display_name", "timezone", "public_base_url", "contact_fallback", "host_notification_email"];
-    for (const name of fields) {
-      const label = el("label", name);
-      const input = el("input");
+    form.className = "admin-form";
+    const fields = [
+      ["display_name", "Display name", "Shown as the host on public pages."],
+      ["timezone", "Timezone", "Zone the schedule and admin times follow."],
+      ["public_base_url", "Public base URL", "Canonical origin visitors see."],
+      ["contact_fallback", "Contact fallback", "Shown when booking is paused."],
+      ["host_notification_email", "Host notification email", "Where new-booking notices go."],
+    ];
+    let zones = [];
+    try { zones = JSON.parse(root.dataset.config || "{}").zones || []; } catch (err) { zones = []; }
+    for (const [name, label, hint] of fields) {
+      const wrap = el("div");
+      wrap.className = "field";
+      const lab = el("label", label);
+      lab.htmlFor = `set-${name}`;
+      const input = name === "timezone" ? el("select") : el("input");
+      input.id = `set-${name}`;
       input.name = name;
-      input.value = host[name] || "";
-      input.style.display = "block";
-      label.appendChild(input);
-      form.appendChild(label);
+      if (name === "timezone") {
+        // A typo in a free-text IANA zone would silently break the schedule;
+        // a fixed list cannot be mistyped.
+        const current = host[name] || "";
+        for (const zone of zones) input.appendChild(new Option(zone, zone));
+        if (current && !zones.includes(current)) input.prepend(new Option(current, current));
+        input.value = current;
+      } else {
+        input.value = host[name] || "";
+      }
+      wrap.appendChild(lab);
+      wrap.appendChild(input);
+      wrap.appendChild(el("span", hint)).className = "hint";
+      form.appendChild(wrap);
     }
     const save = el("button", "Save settings");
+    save.type = "submit";
     save.className = "btn";
+    const note = el("span", "Saved");
+    note.className = "saved-note";
+    note.setAttribute("role", "status");
     form.appendChild(save);
+    form.appendChild(note);
     form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
+      save.disabled = true;
+      note.classList.remove("error", "visible");
+      note.setAttribute("role", "status");
       const payload = {};
-      fields.forEach((n) => { payload[n] = form.elements[n].value; });
-      await call("/settings", { method: "PUT", body: JSON.stringify(payload) });
-      alert("Saved");
+      fields.forEach(([name]) => { payload[name] = form.elements[name].value; });
+      try {
+        await call("/settings", { method: "PUT", body: JSON.stringify(payload) });
+        note.textContent = "Saved";
+        note.classList.add("visible");
+        setTimeout(() => note.classList.remove("visible"), 2400);
+      } catch (err) {
+        note.textContent = err.message;
+        note.setAttribute("role", "alert");
+        note.classList.add("error", "visible");
+      } finally {
+        save.disabled = false;
+      }
     });
-    box.appendChild(form);
+    card.appendChild(form);
+    box.appendChild(card);
   }
 
   const loaders = { overview: loadOverview, types: loadTypes, bookings: loadBookings, settings: loadSettings };
