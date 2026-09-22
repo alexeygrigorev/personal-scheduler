@@ -23,11 +23,14 @@
   }
 
   // A raw browser error ("Failed to fetch") says nothing actionable; every
-  // error surface embeds this fragment after its own context prefix.
+  // error surface embeds this fragment after its own context prefix. A
+  // trailing period is stripped: the embedding contexts supply their own,
+  // and server messages often arrive with one attached.
   function why(err) {
-    return err.message === "Failed to fetch"
+    const message = err.message === "Failed to fetch"
       ? "the server could not be reached"
       : (err.message || "something went wrong");
+    return message.replace(/\.+$/, "");
   }
 
   function badge(kind, text) {
