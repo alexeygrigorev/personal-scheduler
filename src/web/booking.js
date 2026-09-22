@@ -192,6 +192,10 @@
           renderDays(state.days);
           renderTimes(state.dayToSlots[key] || []);
           updateSummary();
+          // The grid was rebuilt, so the clicked cell is gone from the DOM;
+          // focus its replacement to keep keyboard users anchored.
+          const picked = $("day-grid").querySelector('button[aria-pressed="true"]');
+          if (picked) picked.focus({ preventScroll: true });
         });
       } else {
         btn.disabled = true;
@@ -203,9 +207,20 @@
     $("month-label").textContent = state.month.toLocaleDateString([], { month: "long", year: "numeric", timeZone: "UTC" });
   }
 
-  function renderTimes(slots) {
+  function renderTimes(slots, { restoreFocus = false } = {}) {
     const list = $("time-list");
     list.innerHTML = "";
+    // The list itself never names the day it shows, so the header does:
+    // after "Next available day" or a month jump the chosen day may not be
+    // anywhere on screen.
+    const dayEl = $("times-day");
+    if (dayEl) {
+      dayEl.textContent = state.selectedDay
+        ? new Date(state.selectedDay + "T12:00:00Z").toLocaleDateString(
+            [], { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })
+          + ` · ${slots.length} open time${slots.length === 1 ? "" : "s"}`
+        : "";
+    }
     for (const slot of slots) {
       const li = document.createElement("li");
       const btn = document.createElement("button");
@@ -216,7 +231,7 @@
       btn.addEventListener("click", () => {
         state.selectedStart = slot.start;
         state.selectedEnd = slot.end;
-        renderTimes(slots);
+        renderTimes(slots, { restoreFocus: true });
         updateSummary();
         showDetails(true);
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -224,6 +239,12 @@
       });
       li.appendChild(btn);
       list.appendChild(li);
+    }
+    // Re-rendering replaces the clicked button, which would drop a keyboard
+    // user's focus to <body>; put it on the control they were using.
+    if (restoreFocus) {
+      const selected = list.querySelector('button[aria-pressed="true"]');
+      if (selected) selected.focus({ preventScroll: true });
     }
   }
 
@@ -395,6 +416,10 @@
       state.selectedDay = next;
       renderDays(state.days);
       renderTimes(state.dayToSlots[next] || []);
+      // Land keyboard users on the day they just jumped to; the day cell
+      // announces itself ("Bookable: …") and Tabs straight into its times.
+      const picked = $("day-grid").querySelector('button[aria-pressed="true"]');
+      if (picked) picked.focus({ preventScroll: true });
     } else {
       const m = new Date(state.month);
       m.setUTCMonth(m.getUTCMonth() + 1);

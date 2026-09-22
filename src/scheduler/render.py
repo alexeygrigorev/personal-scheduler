@@ -239,7 +239,8 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 <button type="button" class="btn secondary sm" id="next-day">Next available day</button>
 </div>
 <div class="day-grid" id="day-grid" role="group" aria-label="Days with availability"></div>
-<div class="times-head" id="times-head"><h2>Available times</h2></div>
+<div class="times-head" id="times-head"><h2>Available times</h2>
+<span class="hint" id="times-day"></span></div>
 <ul class="times" id="time-list" aria-label="Available start times"></ul>
 </section>
 <section class="details-panel" aria-label="Your details">
@@ -297,8 +298,17 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
     status = booking.get("status", "")
     pending = booking.get("pending_action", "")
     headline = {"confirmed": "Booking confirmed", "canceled": "Booking canceled"}.get(status, "Booking")
+    # Color-coded at a glance, same badge language the admin console uses:
+    # green = live booking, red = canceled, amber = a cancel is in flight.
     if pending == "cancel":
         headline += " — cancellation pending"
+        status_badge = '<span class="badge warn">Cancellation pending</span>'
+    elif status == "confirmed":
+        status_badge = '<span class="badge ok">Confirmed</span>'
+    elif status == "canceled":
+        status_badge = '<span class="badge danger">Canceled</span>'
+    else:
+        status_badge = ""
     what_bits = []
     if event_title:
         what_bits.append(event_title)
@@ -365,7 +375,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
     body = f"""<div id="manage-root" data-config='{json.dumps(cfg)}'>
 <div class="narrow">
 <div class="panel manage-panel">
-<h1>{_esc(headline)}</h1>
+<div class="manage-head"><h1>{_esc(headline)}</h1>{status_badge}</div>
 {'<p class="manage-sub">' + _esc(" · ".join(what_bits)) + "</p>" if what_bits else ""}
 <div class="manage-summary">
 <div class="row-line"><span class="label">Reference</span><span class="ref-chip">{_esc(booking.get('reference', ''))}</span></div>
@@ -401,7 +411,16 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
             what_bits.append(duration_label(int(booking["duration_min"])))
         what_line = (f"<p class=\"detail-line\">{_esc(' · '.join(what_bits))}</p>"
                      if what_bits else "")
+        # Joining details travel with the receipt, not just the email: the
+        # invitee who opens the receipt link later still needs the room.
+        joining = (booking.get("conference", {}) or {}).get("link", "") \
+            or "See your calendar invitation."
+        if (booking.get("conference", {}) or {}).get("status") == "pending":
+            joining = "Joining details are being prepared."
+        joining_html = (f"<a class=\"join-link\" href=\"{_esc(joining)}\">{_esc(joining)}</a>"
+                        if str(joining).startswith("http") else _esc(joining))
         body_inner = (f"<p class=\"detail-line\">{_human_when(when)}</p>"
+                      f"<p class=\"detail-line\">Joining: {joining_html}</p>"
                       f"<p>The confirmation email carries your management link.</p>")
         # The management link itself cannot be rebuilt here (tokens are only
         # ever stored hashed), but the calendar file and the way back can.
