@@ -15,7 +15,7 @@
     statusEl.querySelector(".status-text").textContent = text;
   }
 
-  async function postAction(action, payload) {
+  async function postAction(action, payload, messageFor) {
     setStatus("", "Working…");
     try {
       const res = await fetch(`${api}/manage/${token}/${action}`, {
@@ -27,7 +27,11 @@
       const data = await res.json().catch(() => {
         throw new Error("Something went wrong on our side. Please try again.");
       });
-      if (!res.ok) throw new Error((data.error && data.error.message) || "Request failed");
+      if (!res.ok) {
+        const code = (data.error && data.error.code) || "";
+        throw new Error((messageFor && messageFor[code])
+          || (data.error && data.error.message) || "Request failed");
+      }
       if (data.status === "pending") {
         setStatus("", "The calendar is being updated. This page will reflect the outcome — do not retry.");
         return;
@@ -104,10 +108,40 @@
     // instant that will be sent is never ambiguous.
     const startInput = document.getElementById("resched-start");
     const previewEl = document.getElementById("resched-preview");
+    // Wall-clock "now" in the booking's display zone, for the picker's min:
+    // a start in the past can never save (the policy rejects every instant
+    // before now), so the picker should not offer one.
+    function wallNow(zone) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: zone, hour12: false,
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit",
+      }).formatToParts(new Date());
+      const get = (type) => parts.find((p) => p.type === type).value;
+      const hour = String(Number(get("hour")) % 24).padStart(2, "0");
+      return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+    }
+    const zone = cfg.timezone || "UTC";
+    startInput.min = wallNow(zone);
+    // The same rule as a live check, with a minute of slack for slow typing:
+    // the clock moves on while the form sits open.
+    function isPast(raw) {
+      if (!raw) return false;
+      const instant = wallToIso(raw, zone);
+      return instant !== null && new Date(instant).getTime() < Date.now() - 60000;
+    }
     function updatePreview() {
       if (!previewEl) return;
-      const zone = cfg.timezone || "UTC";
-      const instant = startInput.value ? wallToIso(startInput.value, zone) : null;
+      const raw = startInput.value;
+      const instant = raw ? wallToIso(raw, zone) : null;
+      if (isPast(raw)) {
+        previewEl.textContent = "That start is in the past — pick a later time.";
+        previewEl.classList.add("warn");
+        startInput.setAttribute("aria-invalid", "true");
+        return;
+      }
+      previewEl.classList.remove("warn");
+      startInput.removeAttribute("aria-invalid");
       if (!instant) { previewEl.textContent = ""; return; }
       const shown = new Date(instant).toLocaleString([], {
         weekday: "short", day: "numeric", month: "short",
@@ -122,12 +156,26 @@
     reschedForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
       const raw = document.getElementById("resched-start").value;
+      if (!raw) {
+        setStatus("error", "Pick a start time first.");
+        startInput.focus();
+        return;
+      }
+      if (isPast(raw)) {
+        setStatus("error", "That start is in the past. Pick a later time and try again.");
+        startInput.focus();
+        return;
+      }
       const start = wallToIso(raw, cfg.timezone || "UTC") || raw;
       postAction("reschedule", {
         revision: Number(cfg.revision),
         start,
         duration: Number(document.getElementById("resched-duration").value || cfg.duration),
         idempotency_key: crypto.randomUUID(),
+      }, {
+        // The raw policy message says nothing actionable; "too soon" is what
+        // it means for an invitee picking a new slot.
+        policy_violation: "That time is too soon — the booking policy needs more notice. Pick a later start.",
       });
     });
   }
