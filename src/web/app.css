@@ -277,6 +277,9 @@ main.landing {
 .info-meta { display: flex; flex-direction: column; gap: 0.5rem; font-size: var(--fs-secondary); color: var(--muted); }
 .info-meta .row { display: flex; align-items: center; gap: 0.5rem; }
 .info-meta svg { flex: none; color: var(--muted); }
+/* The duration control is a second section of the info panel, not another
+ * fact in the list; the rule keeps the two from reading as one block. */
+.info-panel fieldset { border-top: 1px solid var(--line); padding-top: 1.125rem; margin: 1.125rem 0 0; }
 
 fieldset { border: 0; margin: 0 0 1rem; padding: 0; }
 legend { padding: 0; font-weight: 650; font-size: var(--fs-body); margin-bottom: 0.5rem; }
@@ -521,7 +524,7 @@ main.centered .centerpiece { margin: auto; }
 .centerpiece .status-orb.pending { background: var(--warn-soft); border: 1px solid var(--warn-border); color: var(--warn); box-shadow: 0 0 0 6px rgba(181, 71, 8, 0.06); }
 .centerpiece .status-orb.failed { background: var(--danger-soft); border: 1px solid var(--danger-border); color: var(--danger); box-shadow: 0 0 0 6px rgba(180, 35, 24, 0.06); }
 .centerpiece p { color: var(--muted); }
-.centerpiece .detail-line { color: var(--ink); font-weight: 600; }
+.centerpiece .detail-line { color: var(--ink); font-weight: 600; text-wrap: balance; }
 .centerpiece .form-actions { justify-content: center; margin-top: 1.5rem; }
 
 /* ---------- admin ---------- */
