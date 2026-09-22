@@ -38,7 +38,11 @@
       }
       window.location.reload();
     } catch (err) {
-      setStatus("error", err.message);
+      // A raw browser error ("Failed to fetch") says nothing actionable;
+      // crafted server messages already read as sentences and pass through.
+      setStatus("error", err.message === "Failed to fetch"
+        ? "The server could not be reached. Check your connection and try again."
+        : err.message);
     }
   }
 
