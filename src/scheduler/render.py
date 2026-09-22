@@ -71,7 +71,7 @@ def _initials(name):
 
 
 def shell(title, body, *, scripts=(), brand_name=None, head_side="", main_class="",
-          tz_note=None):
+          tz_note=None, head_extra=""):
     mark = _esc(_initials(brand_name)) if brand_name else icon("calendar")
     side = f'<div class="site-head-side">{head_side}</div>' if head_side else ""
     tags = "\n".join(f'<script src="/assets/{name}" defer></script>' for name in scripts)
@@ -86,7 +86,7 @@ def shell(title, body, *, scripts=(), brand_name=None, head_side="", main_class=
             f"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<meta name=\"color-scheme\" content=\"light\">\n{favicon}\n"
             f"<title>{_esc(title)}</title>\n"
-            f"<link rel=\"stylesheet\" href=\"/assets/app.css\">\n{tags}\n</head>\n"
+            f"<link rel=\"stylesheet\" href=\"/assets/app.css\">\n{tags}{head_extra}\n</head>\n"
             f"<body>\n<a class=\"skip\" href=\"#main\">Skip to content</a>\n"
             f"<header class=\"site-head\"><div class=\"wrap\">"
             f"<a class=\"brand\" href=\"/\"><span class=\"brand-mark\">{mark}</span>"
@@ -446,10 +446,16 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
                 f"<span class=\"status-orb pending\">{icon('clock', 'ic')}</span>"
                 f"<h1>Booking is being reconciled</h1>"
                 f"<p>The calendar write has an unknown outcome. Your time is protected; "
-                f"do not book again. This page reflects the outcome once known.</p></div>")
+                f"do not book again. This page rechecks every few seconds and reflects "
+                f"the outcome once known.</p></div>")
+        # The promise above has to be true without visitor effort: reload
+        # until this page stops being what the server serves (a settled
+        # operation renders a different page with no refresh tag).
         return http.html_response(200, shell("Booking pending", body,
                                              main_class="centered",
-                                             brand_name=host_name or None))
+                                             brand_name=host_name or None,
+                                             head_extra="\n<meta http-equiv=\"refresh\" "
+                                                        "content=\"7\">"))
     return notice("Booking failed", "The booking could not be completed. Please try again.",
                   status=502, link=("Back to booking", "/"), brand_name=host_name or None)
 
