@@ -183,8 +183,23 @@
     const btn = el("button", data.paused ? "Resume new bookings" : "Pause new bookings");
     btn.className = "btn secondary sm";
     btn.addEventListener("click", async () => {
-      await call("/settings", { method: "PUT", body: JSON.stringify({ pause_new_bookings: !data.paused }) });
-      loadOverview();
+      // Every other action here speaks when it fails; a dead-looking toggle
+      // would be the one silent surface. Locked while in flight so a double
+      // click cannot fire two contradictory PUTs.
+      btn.disabled = true;
+      const note = el("span");
+      note.className = "saved-note";
+      try {
+        await call("/settings", { method: "PUT", body: JSON.stringify({ pause_new_bookings: !data.paused }) });
+        loadOverview();
+      } catch (err) {
+        btn.disabled = false;
+        note.textContent = `Could not save that change — ${why(err)}.`;
+        note.className = "saved-note error visible";
+        note.setAttribute("role", "alert");
+        panelHead.appendChild(note);
+        setTimeout(() => note.remove(), 4000);
+      }
     });
     const panel = el("div");
     panel.className = "panel next-bookings";
