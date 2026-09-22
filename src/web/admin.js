@@ -22,6 +22,14 @@
     return node;
   }
 
+  // A raw browser error ("Failed to fetch") says nothing actionable; every
+  // error surface embeds this fragment after its own context prefix.
+  function why(err) {
+    return err.message === "Failed to fetch"
+      ? "the server could not be reached"
+      : (err.message || "something went wrong");
+  }
+
   function badge(kind, text) {
     const b = el("span", text);
     b.className = "badge" + (kind ? " " + kind : "");
@@ -109,11 +117,7 @@
       const panel = el("div");
       panel.className = "empty-state";
       panel.setAttribute("role", "alert");
-      // A raw browser error ("Failed to fetch") says nothing actionable.
-      const why = err.message === "Failed to fetch"
-        ? "the server could not be reached"
-        : err.message;
-      panel.appendChild(el("p", `Could not load this section — ${why}.`));
+      panel.appendChild(el("p", `Could not load this section — ${why(err)}.`));
       const retry = el("button", "Retry");
       retry.className = "btn secondary sm";
       retry.addEventListener("click", () => show(section));
@@ -281,7 +285,7 @@
           loadTypes();
         } catch (err) {
           toggle.disabled = false;
-          const note = el("span", err.message || "Failed — try again");
+          const note = el("span", `Could not save that change — ${why(err)}.`);
           note.className = "saved-note error visible row-error";
           note.setAttribute("role", "alert");
           actions.appendChild(note);
@@ -379,7 +383,7 @@
         } catch (err) {
           disarm();
           cancel.disabled = false;
-          flashError(box, err.message);
+          flashError(box, `Could not cancel that booking — ${why(err)}.`);
         }
       });
       cancel.addEventListener("keydown", (ev) => {
@@ -458,7 +462,7 @@
         note.classList.add("visible");
         setTimeout(() => note.classList.remove("visible"), 2400);
       } catch (err) {
-        note.textContent = err.message;
+        note.textContent = `Could not save — ${why(err)}.`;
         note.setAttribute("role", "alert");
         note.classList.add("error", "visible");
       } finally {
