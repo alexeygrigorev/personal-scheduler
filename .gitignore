@@ -9,3 +9,6 @@ dist/
 coverage/
 .env
 src/requirements.txt
+
+# local UI-review scratch
+.tmp/
