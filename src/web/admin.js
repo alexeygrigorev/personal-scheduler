@@ -100,7 +100,8 @@
     box.innerHTML = "";
     const loading = el("div");
     loading.className = "tab-loading";
-    loading.setAttribute("aria-hidden", "true");
+    loading.setAttribute("role", "status");
+    loading.setAttribute("aria-label", "Loading");
     for (let i = 0; i < 4; i++) loading.appendChild(el("div", "")).className = "skeleton-row";
     box.appendChild(loading);
     loaders[section]().catch((err) => {
@@ -168,18 +169,22 @@
       "Provider connection"));
     grid.appendChild(statTile("New bookings", badge(data.paused ? "danger" : "ok", data.paused ? "Paused" : "Open")));
     box.appendChild(grid);
+    // The pause control lives in the schedule panel's header row: a button
+    // floating between the stat tiles and the panel read as an orphan with
+    // no object, and it governs exactly what this panel shows.
     const btn = el("button", data.paused ? "Resume new bookings" : "Pause new bookings");
-    btn.className = "btn secondary";
+    btn.className = "btn secondary sm";
     btn.addEventListener("click", async () => {
       await call("/settings", { method: "PUT", body: JSON.stringify({ pause_new_bookings: !data.paused }) });
       loadOverview();
     });
-    box.appendChild(btn);
-    // The tiles alone left the overview half empty; the next few bookings
-    // give the landing tab real content and a path into the full list.
     const panel = el("div");
     panel.className = "panel next-bookings";
-    panel.appendChild(el("h2", "Next bookings"));
+    const panelHead = el("div");
+    panelHead.className = "panel-head";
+    panelHead.appendChild(el("h2", "Next bookings"));
+    panelHead.appendChild(btn);
+    panel.appendChild(panelHead);
     const list = (upcoming.bookings || []).slice(0, 5);
     if (!list.length) {
       const empty = el("p", "Nothing booked ahead.");
@@ -240,9 +245,10 @@
       const toggle = el("button", disabling ? "Disable" : "Enable");
       toggle.className = "btn sm " + (disabling ? "danger" : "secondary");
       // Hiding a type takes bookings off the public site, so it gets the
-      // same two-step arm as a cancel; failure surfaces on the button
-      // instead of vanishing into an unhandled rejection.
-      toggle.setAttribute("aria-live", "polite");
+      // same two-step arm as a cancel. Failure surfaces as a note beside
+      // the actions, never inside the button label: buttons stay nowrap,
+      // so a long message there would push the button past the card edge
+      // on mobile.
       let armTimer = 0;
       const disarm = () => {
         clearTimeout(armTimer);
@@ -271,14 +277,11 @@
           loadTypes();
         } catch (err) {
           toggle.disabled = false;
-          toggle.textContent = err.message || "Failed — try again";
-          setTimeout(() => {
-            // A click during the error window may already have re-armed;
-            // only reset text that is still showing the failure.
-            if (!toggle.dataset.armed && !toggle.disabled) {
-              toggle.textContent = disabling ? "Disable" : "Enable";
-            }
-          }, 4000);
+          const note = el("span", err.message || "Failed — try again");
+          note.className = "saved-note error visible row-error";
+          note.setAttribute("role", "alert");
+          actions.appendChild(note);
+          setTimeout(() => note.remove(), 4000);
         }
       });
       toggle.addEventListener("keydown", (ev) => {
