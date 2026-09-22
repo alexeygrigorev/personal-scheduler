@@ -333,6 +333,19 @@
     return !firstInvalid;
   }
 
+  // maxlength silently swallows keystrokes at the cap; surface the last
+  // stretch so the limit arrives while there is still room to edit.
+  function updateCharCount(input) {
+    const field = input.closest(".field");
+    const counter = field && field.querySelector(".char-count");
+    if (!counter) return;
+    const max = parseInt(input.getAttribute("maxlength"), 10) || 0;
+    const len = input.value.length;
+    if (!max || len < max * 0.8) { counter.textContent = ""; return; }
+    counter.textContent = len + " / " + max;
+    counter.classList.toggle("warn", len >= max);
+  }
+
   function rememberTimezone() {
     // Preference only, not a credential: readable by script, scoped to this
     // site, so the next page render already knows the visitor's zone.
@@ -384,11 +397,16 @@
       }
       if (!res.ok) {
         const fields = (data.error && data.error.fields) || {};
-        for (const [inputId, errId, key] of [
+        const rows = [
           ["f-name", "err-name", "name"],
           ["f-email", "err-email", "email"],
           ["f-notes", "err-notes", "agenda"],
-        ]) {
+          // Autofill and programmatic input bypass maxlength; the server's
+          // per-question verdicts must still land on their own field.
+          ...[...document.querySelectorAll("#details-form [data-question]")].map(
+            (el) => [el.id, "err-" + el.id, "q:" + el.dataset.question]),
+        ];
+        for (const [inputId, errId, key] of rows) {
           const message = fields[key];
           fieldError(errId, message);
           const input = $(inputId);
@@ -512,6 +530,7 @@
   // Typing clears the field's error right away, not just on the next submit.
   document.getElementById("details-form").addEventListener("input", (ev) => {
     const input = ev.target;
+    updateCharCount(input);
     if (!input.matches("[required]")) return;
     input.removeAttribute("aria-invalid");
     fieldError(errIdFor(input), "");

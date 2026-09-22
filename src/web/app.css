@@ -484,6 +484,9 @@ textarea { width: 100%; resize: vertical; }
 .field { margin: 0 0 1rem; }
 .field label { display: block; font-weight: 600; font-size: var(--fs-secondary); margin-bottom: 0.375rem; }
 .field .error { color: var(--danger); font-size: var(--fs-caption); font-weight: 550; min-height: 1.1em; display: block; margin-top: 0.25rem; }
+.char-count { display: block; text-align: right; color: var(--muted); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; margin-top: 0.25rem; }
+.char-count:empty { display: none; }
+.char-count.warn { color: var(--warn); font-weight: 550; }
 input[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger-border); }
 input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
   outline-color: var(--danger); border-color: var(--danger);
