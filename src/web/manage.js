@@ -36,6 +36,12 @@
         setStatus("", "The calendar is being updated. This page will reflect the outcome — do not retry.");
         return;
       }
+      // A reschedule rotates the management link: the server revokes the
+      // token this page was opened with, so a plain reload would land the
+      // visitor on "Invalid link" right after their change succeeded. The
+      // response carries the fresh link; cancel responses carry none and
+      // keep this token valid, so they fall through to a plain reload.
+      if (data.manage_url) { window.location.href = data.manage_url; return; }
       window.location.reload();
     } catch (err) {
       // A raw browser error ("Failed to fetch") says nothing actionable;
