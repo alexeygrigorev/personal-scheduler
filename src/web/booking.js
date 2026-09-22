@@ -9,6 +9,14 @@
   const cfg = JSON.parse(root.dataset.config || "{}");
   const api = cfg.apiBase || "/api/v1";
 
+  // A raw browser error ("Failed to fetch") says nothing actionable; error
+  // surfaces embed this fragment after their own context prefix.
+  function why(err) {
+    return err.message === "Failed to fetch"
+      ? "the server could not be reached"
+      : (err.message || "something went wrong");
+  }
+
   // First visit: the server had no zone cookie yet and rendered its default,
   // so the browser's own zone wins; an explicit cookie (this visit or an
   // earlier one) always beats Intl detection.
@@ -125,7 +133,7 @@
       data = await readJson(res);
       if (!res.ok) throw new Error((data.error && data.error.message) || "Unavailable");
     } catch (err) {
-      setStatus("error", `Could not load times: ${err.message}.`);
+      setStatus("error", `Could not load times — ${why(err)}.`);
       renderEmptyMonth("Availability could not be loaded.");
       return;
     }
@@ -235,7 +243,11 @@
         updateSummary();
         showDetails(true);
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        formWrap.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+        // "start", not "nearest": on a phone the form is a tall block below
+        // the times, and nearest lands on its bottom edge with the summary
+        // and first fields off-screen. On desktop the sticky panel is already
+        // in view, so this is a no-op there.
+        formWrap.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
       });
       li.appendChild(btn);
       list.appendChild(li);
@@ -388,7 +400,7 @@
     } catch (err) {
       btn.disabled = false;
       btn.textContent = "Confirm booking";
-      setStatus("error", err.message);
+      setStatus("error", `Could not confirm the booking — ${why(err)}.`);
     }
   }
 
