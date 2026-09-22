@@ -340,6 +340,12 @@
       "; Path=/; Max-Age=31536000; SameSite=Lax";
   }
 
+  function restoreConfirmButton() {
+    const btn = $("confirm-btn");
+    btn.disabled = false;
+    btn.textContent = "Confirm booking";
+  }
+
   async function submitBooking(ev) {
     ev.preventDefault();
     if (!validateDetails()) return;
@@ -368,8 +374,7 @@
       });
       const data = await readJson(res);
       if (res.status === 409 && data.error && data.error.code === "slot_unavailable") {
-        btn.disabled = false;
-        btn.textContent = "Confirm booking";
+        restoreConfirmButton();
         await loadAvailability(true); // refreshed alternatives, form entries preserved
         // Set after the refresh so the reload's status text can't overwrite it.
         setStatus("error", "That time was just taken. Your details are kept — pick a new time below.");
@@ -398,8 +403,7 @@
       }
       window.location.href = data.manage_url;
     } catch (err) {
-      btn.disabled = false;
-      btn.textContent = "Confirm booking";
+      restoreConfirmButton();
       setStatus("error", `Could not confirm the booking — ${why(err)}.`);
     }
   }
@@ -407,19 +411,30 @@
   async function pollOperation(operationId) {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 3000));
-      const res = await fetch(`${api}/operations/${operationId}`);
-      const data = await res.json();
+      let data = null;
+      try {
+        const res = await fetch(`${api}/operations/${operationId}`);
+        data = await res.json();
+      } catch (err) {
+        // A dropped or non-JSON probe must not orphan a settled booking;
+        // skip it and let the remaining ticks carry on.
+        continue;
+      }
       if (data.state === "succeeded" && data.booking) {
         window.location.href = data.receipt_url || `${api}/operations/${operationId}`;
         return;
       }
       if (data.state === "failed") {
         setStatus("error", "The booking could not be completed. Please try again.");
-        document.getElementById("confirm-btn").disabled = false;
+        restoreConfirmButton();
         return;
       }
     }
-    setStatus("error", "Still reconciling. Check your email for the confirmation.");
+    // Giving up must not strand the visitor behind a dead "Confirming…"
+    // button: resubmitting is safe (the idempotency key resolves to the same
+    // operation, never a second booking).
+    setStatus("error", "Still reconciling — check your email for the confirmation, or try again.");
+    restoreConfirmButton();
   }
 
   function nextAvailableDay() {
@@ -487,7 +502,13 @@
   });
   $("next-day").addEventListener("click", nextAvailableDay);
   $("details-form").addEventListener("submit", submitBooking);
-  $("back-to-times").addEventListener("click", () => { showDetails(false); });
+  $("back-to-times").addEventListener("click", () => {
+    showDetails(false);
+    // Hiding the form would drop a keyboard user's focus to <body>; anchor
+    // it on the time they had picked, where they continue from anyway.
+    const picked = document.querySelector('#time-list button[aria-pressed="true"]');
+    if (picked) picked.focus({ preventScroll: true });
+  });
   // Typing clears the field's error right away, not just on the next submit.
   document.getElementById("details-form").addEventListener("input", (ev) => {
     const input = ev.target;
