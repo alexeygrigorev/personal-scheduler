@@ -109,7 +109,11 @@
       const panel = el("div");
       panel.className = "empty-state";
       panel.setAttribute("role", "alert");
-      panel.appendChild(el("p", `Could not load this section: ${err.message}`));
+      // A raw browser error ("Failed to fetch") says nothing actionable.
+      const why = err.message === "Failed to fetch"
+        ? "the server could not be reached"
+        : err.message;
+      panel.appendChild(el("p", `Could not load this section — ${why}.`));
       const retry = el("button", "Retry");
       retry.className = "btn secondary sm";
       retry.addEventListener("click", () => show(section));
