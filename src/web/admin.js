@@ -252,8 +252,17 @@
         } catch (err) {
           toggle.disabled = false;
           toggle.textContent = err.message || "Failed — try again";
-          setTimeout(() => { toggle.textContent = disabling ? "Disable" : "Enable"; }, 4000);
+          setTimeout(() => {
+            // A click during the error window may already have re-armed;
+            // only reset text that is still showing the failure.
+            if (!toggle.dataset.armed && !toggle.disabled) {
+              toggle.textContent = disabling ? "Disable" : "Enable";
+            }
+          }, 4000);
         }
+      });
+      toggle.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape" && toggle.dataset.armed) disarm();
       });
       stack.appendChild(toggle);
       const preview = el("a", "Preview");
