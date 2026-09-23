@@ -79,7 +79,7 @@ def test_dark_scheme_answers_every_color_token():
     root = css.split(":root {", 1)[1].split("\n}", 1)[0]
     color_tokens = re.findall(r"^  (--[a-z0-9-]+): (?:#|rgba)", root, re.M)
     assert color_tokens, "no color tokens found in :root"
-    dark = css.split("@media (prefers-color-scheme: dark)", 1)[1]
+    dark = css.split("@media only screen and (prefers-color-scheme: dark)", 1)[1]
     dark_root = dark.split(":root {", 1)[1].split("\n  }\n}", 1)[0]
     for token in color_tokens:
         assert re.search(rf"^\s*{re.escape(token)}:", dark_root, re.M), \
@@ -88,6 +88,18 @@ def test_dark_scheme_answers_every_color_token():
     # keeps them at 4.5:1, so the dark block must not lighten it.
     assert "--accent-fill: #4f46e5;" in root
     assert "--accent-fill: #4f46e5;" in dark_root
+
+
+def test_dark_palette_stays_off_paper():
+    # The print sheet is the record on white paper: if the dark token block
+    # also matched print media, panels would print as near-black slabs with
+    # the title lost in them. The palette swap answers screens only.
+    css = (render.WEB_DIR / "app.css").read_text()
+    dark = [q for q in re.findall(r"@media[^{]+", css)
+            if "prefers-color-scheme: dark" in q]
+    assert dark, "dark scheme block missing"
+    for query in dark:
+        assert "screen" in query, f"dark palette not screen-scoped: {query.strip()!r}"
 
 
 def _booking_page(questions=()):

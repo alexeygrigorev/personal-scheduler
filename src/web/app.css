@@ -920,7 +920,10 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
  * translucent color, and the text accents lighten to hold their contrast
  * ratios on dark surfaces. Filled controls do not shift — --accent-fill
  * keeps its light-theme value so white labels stay at 4.5:1 in both. */
-@media (prefers-color-scheme: dark) {
+/* The palette swap answers the OS theme on screen only. Paper is white no
+ * matter what the OS prefers: under print media the swap must not match,
+ * or panels print as near-black slabs and the title drowns in them. */
+@media only screen and (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1524;
     --surface: #1a2132;
