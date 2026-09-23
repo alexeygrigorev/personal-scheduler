@@ -18,3 +18,18 @@ def test_picking_a_fresh_day_retires_the_taken_alarm():
     assert 'includes("just taken")' in pick
     assert 'startsWith("Could not confirm")' in pick
     assert 'setStatus("", "Day picked — now choose a time.")' in pick
+
+
+def test_time_pick_scrolls_only_when_the_form_is_off_screen():
+    # The pick scroll exists for the phone, where the details form is a tall
+    # block below the fold. On a desktop the sticky panel never left the
+    # viewport, and scrolling to its heading anyway yanks the calendar out
+    # from under the visitor's cursor — which then hovers a random slot as
+    # if the app had highlighted it. The anchor's box must gate the scroll:
+    # fully on screen means no jump.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    guard = js.split("const detailsAnchor", 1)[1].split("scrollIntoView", 1)[0]
+    assert "getBoundingClientRect()" in guard
+    assert "alreadyInView" in guard
+    call = js.split("if (!alreadyInView)", 1)[1].split("}", 1)[0]
+    assert 'block: "start"' in call
