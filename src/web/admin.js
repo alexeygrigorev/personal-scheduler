@@ -87,6 +87,14 @@
     return hours === 1 ? "1 hour" : `${hours} hours`;
   }
 
+  // A duration reads as one unit — a narrow cell must split "1 hour" across
+  // lines. The list breaks after a slash, never before one: the space before
+  // "/" is non-breaking too, so a wrap strands "45 min /" at the line's end
+  // instead of opening the next line with an orphaned "/ 1 hour".
+  const solidDuration = (mins) => fmtDuration(mins).replace(" ", "\u00A0");
+  const durationList = (mins) =>
+    mins.map(solidDuration).join("\u00A0/ ");
+
   function statTile(label, valueContent, meta) {
     const tile = el("div");
     tile.className = "stat";
@@ -388,8 +396,8 @@
       slug.dataset.label = "Slug";
       row.appendChild(slug);
       const duration = t.duration_mode === "fixed"
-        ? fmtDuration(t.fixed_duration_min)
-        : (t.allowed_durations || []).map(fmtDuration).join(" / ");
+        ? solidDuration(t.fixed_duration_min)
+        : durationList(t.allowed_durations || []);
       const durationCell = el("td", duration);
       durationCell.dataset.label = "Duration";
       row.appendChild(durationCell);

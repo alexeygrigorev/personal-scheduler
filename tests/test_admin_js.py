@@ -217,3 +217,29 @@ def test_duplicate_copies_without_arming_and_aims_at_the_clone():
     assert "dup.disabled = false; dup.focus();" in success
     # A failed copy speaks beside the actions, one note per row.
     assert '"saved-note error visible row-error"' in dup
+
+
+def test_duration_cells_wrap_after_a_slash_never_inside_an_entry():
+    # The Duration column lists pickable lengths: each entry ("1 hour") is
+    # one unit and must not split across lines, and the space before a
+    # separator slash is non-breaking, so a narrow cell wraps as
+    # "30 min / 45 min /" then "1 hour" — never "/ 1 hour" opening a line.
+    js = _admin_js()
+    assert 'replace(" ", "\\u00A0")' in js
+    assert 'join("\\u00A0/ ")' in js
+    cell = js.split("const duration =", 1)[1].split(";", 1)[0]
+    assert "solidDuration(" in cell
+    assert "durationList(" in cell
+
+
+def test_duration_cells_wrap_after_a_slash_never_inside_an_entry():
+    # The Duration column lists pickable lengths: each entry ("1 hour") is
+    # one unit and must not split across lines, and the space before a
+    # separator slash is non-breaking, so a narrow cell wraps as
+    # "30 min / 45 min /" then "1 hour" — never "/ 1 hour" opening a line.
+    js = _admin_js()
+    assert 'replace(" ", "\\u00A0")' in js
+    assert 'join("\\u00A0/ ")' in js
+    cell = js.split("const duration =", 1)[1].split(";", 1)[0]
+    assert "solidDuration(" in cell
+    assert "durationList(" in cell
