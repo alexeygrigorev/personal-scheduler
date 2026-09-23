@@ -215,8 +215,10 @@ def booking_page(item, host_name, viewer_tz="UTC"):
                     f"<input class=\"other-input\" data-question=\"{qid}\" data-other-input "
                     f"maxlength=\"{limit}\" aria-label=\"Other — please specify\">")
             questions.append(
-                f"<div class=\"field choice-field\" data-choice-group=\"{qid}\">"
-                f"<span class=\"q-label\">{label}{' *' if question.get('required') else ''}</span>"
+                f"<div class=\"field choice-field\" data-choice-group=\"{qid}\" "
+                f"role=\"radiogroup\" aria-labelledby=\"ql-q-{qid}\" "
+                f"aria-describedby=\"err-q-{qid}\">"
+                f"<span class=\"q-label\" id=\"ql-q-{qid}\">{label}{' *' if question.get('required') else ''}</span>"
                 f"{''.join(choices)}"
                 f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
             continue
