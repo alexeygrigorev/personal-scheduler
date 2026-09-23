@@ -81,16 +81,23 @@ def test_long_question_gets_a_textarea_with_a_counter():
     html = _booking_page([{"id": "goal", "label": "What would you like to focus on?",
                            "required": True, "max_length": 500}])
     assert ('<textarea id="q-goal" data-question="goal" rows="3" '
-            'maxlength="500" required></textarea>') in html
+            'maxlength="500" required '
+            'aria-describedby="err-q-goal"></textarea>') in html
     assert '<span class="char-count" aria-live="polite"></span>' in html
+    # Required reads the same on every control: the red star sits on the
+    # label, hidden from assistive tech that already knows `required`.
+    label = html.split('<label for="q-goal">')[1].split("</label>")[0]
+    assert '<span class="req" aria-hidden="true"> *</span>' in label
 
 
 def test_short_question_stays_a_single_line_input_without_counter():
     html = _booking_page([{"id": "ref", "label": "Referral code",
                            "required": False, "max_length": 60}])
-    assert '<input id="q-ref" data-question="ref" maxlength="60">' in html
+    assert ('<input id="q-ref" data-question="ref" maxlength="60" '
+            'aria-describedby="err-q-ref">') in html
     field = html.split('<label for="q-ref">')[1].split("</div>")[0]
     assert "char-count" not in field
+    assert "req" not in field
 
 
 def test_details_fields_carry_the_server_caps():

@@ -392,12 +392,22 @@
   function validateDetails() {
     let firstInvalid = null;
     document.querySelectorAll("#details-form [required]").forEach((input) => {
-      if (input.type === "radio" && !input.checked) {
-        // A required choice group gets one verdict: if any sibling is
-        // checked the group is satisfied; unchecked buttons stay silent.
+      if (input.type === "radio") {
+        // One verdict per choice group: the question turns red and the
+        // shared error span speaks. Ringing every unchecked radio reads
+        // as four errors where the visitor made one.
+        const field = input.closest(".choice-field");
         const group = document.querySelectorAll(
           `#details-form input[type="radio"][data-question="${input.dataset.question}"]`);
-        if ([...group].some((r) => r.checked)) return;
+        if ([...group].some((r) => r.checked)) {
+          if (field) field.removeAttribute("aria-invalid");
+          fieldError(errIdFor(input), "");
+          return;
+        }
+        fieldError(errIdFor(input), "This field is required.");
+        if (field) field.setAttribute("aria-invalid", "true");
+        firstInvalid = firstInvalid || input;
+        return;
       }
       const value = input.value.trim();
       let message = "";
@@ -420,6 +430,10 @@
       const otherInput = radio.closest(".choice-field").querySelector("[data-other-input]");
       const message = otherInput && otherInput.value.trim() ? "" : "Please specify your answer.";
       fieldError(errIdFor(radio), message);
+      if (otherInput) {
+        if (message) otherInput.setAttribute("aria-invalid", "true");
+        else otherInput.removeAttribute("aria-invalid");
+      }
       if (message) firstInvalid = firstInvalid || otherInput;
     });
     if (firstInvalid) firstInvalid.focus();
@@ -709,18 +723,35 @@
   document.getElementById("details-form").addEventListener("input", (ev) => {
     const input = ev.target;
     updateCharCount(input);
+    if (input.matches("[data-other-input]")) {
+      input.removeAttribute("aria-invalid");
+      fieldError(errIdFor(input), "");
+    }
     if (!input.matches("[required]")) return;
     input.removeAttribute("aria-invalid");
     fieldError(errIdFor(input), "");
   });
-  // Choosing "Other" hands focus straight to the text field so the answer
-  // starts where the visitor's intent already is. Typing there means Other —
-  // the radio checks itself, so an answer is never silently dropped just
-  // because the visitor skipped the radio.
+  // A choice group lives by the picked answer: the Other field exists only
+  // while Other is picked — revealed up front it reads as a mystery required
+  // input and invites stale half-answers. Choosing "Other" hands focus
+  // straight to the text field so the answer starts where the visitor's
+  // intent already is. Typing there means Other — the radio checks itself,
+  // so an answer is never silently dropped just because the visitor skipped
+  // the radio.
   document.getElementById("details-form").addEventListener("change", (ev) => {
+    if (!ev.target.matches("input[type=radio][data-question]")) return;
+    const field = ev.target.closest(".choice-field");
+    if (!field) return;
+    field.removeAttribute("aria-invalid");
+    field.classList.toggle("other-open",
+      !!field.querySelector("[data-other-radio]:checked"));
     if (!ev.target.matches("[data-other-radio]")) return;
-    const otherInput = ev.target.closest(".choice-field").querySelector("[data-other-input]");
+    const otherInput = field.querySelector("[data-other-input]");
     if (otherInput) otherInput.focus();
+  });
+  document.querySelectorAll(".choice-field").forEach((field) => {
+    field.classList.toggle("other-open",
+      !!field.querySelector("[data-other-radio]:checked"));
   });
   document.getElementById("details-form").addEventListener("input", (ev) => {
     if (!ev.target.matches("[data-other-input]") || ev.target.value.trim() === "") return;
