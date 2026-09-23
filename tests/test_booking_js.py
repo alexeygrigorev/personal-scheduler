@@ -150,3 +150,16 @@ def test_the_kept_selection_load_skips_the_upfront_clear():
     guard = head.split("if (!keepSelection) {", 1)[1]
     assert 'state.selectedStart = ""' in guard
     assert "updateSummary()" in guard
+
+
+def test_the_summary_flags_a_range_that_crosses_midnight():
+    # A distant zone pushes a Berlin afternoon past midnight: for a +14
+    # visitor the slot ends at 00:00 their Thursday, and a range reading
+    # "23:30 - 00:00" under Wednesday's date quietly books a different day
+    # than the one the card advertises. The when-chunk must carry a day flag
+    # whenever the display-zone date of the end leaves the start's date.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    summary = js.split("function updateSummary()", 1)[1].split("el.replaceChildren", 1)[0]
+    assert 'toLocaleDateString("en-CA", { timeZone: state.timezone })' in summary
+    assert '" (+1 day)" : ""' in summary
+    assert "`${range} ·`" in summary

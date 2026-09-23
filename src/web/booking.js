@@ -532,9 +532,15 @@
       const part = (className, textContent) =>
         Object.assign(document.createElement("span"), { className, textContent });
       const nb = (s) => s.replaceAll(" ", "\u00A0");
+      // A distant zone can push the slot's end past midnight — a +14 visitor
+      // booking a Berlin afternoon ends at 00:00 their Thursday. Without a
+      // flag, "23:30 – 00:00" under Wednesday's date quietly books a visit
+      // on a different day than the card advertises.
+      const dayKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: state.timezone });
+      const range = `${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)}${dayKey(state.selectedEnd) !== dayKey(state.selectedStart) ? " (+1 day)" : ""}`;
       const line = part("sum-line", "");
       line.append(
-        part("sum-when", `${nb(`${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)} ·`)} `),
+        part("sum-when", `${nb(`${range} ·`)} `),
         part("sum-dur", `${nb(`${fmtDuration(state.duration)} ·`)} `),
         part("sum-zone", `${state.timezone.replace(/([/_])/g, "$1\u200B")} (${zoneOffsetLabel(state.selectedStart)})`),
       );
