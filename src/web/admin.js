@@ -202,7 +202,9 @@
       call("/overview"),
       hostSettings(),
       call("/event-types").catch(() => ({})),
-      call("/bookings?status=confirmed").catch(() => ({})),
+      // A dead bookings endpoint must reach this builder as a failure, not
+      // as {}: null says "the load failed" so the panel can say so too.
+      call("/bookings?status=confirmed").catch(() => null),
     ]);
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const health = data.health || {};
@@ -261,8 +263,30 @@
     panelHead.appendChild(el("h2", "Next bookings"));
     panelHead.appendChild(btn);
     panel.appendChild(panelHead);
-    const list = (upcoming.bookings || []).slice(0, 5);
-    if (!list.length) {
+    const list = upcoming ? (upcoming.bookings || []).slice(0, 5) : [];
+    if (upcoming === null) {
+      // A failed load is an error, not an empty shelf: "Nothing booked
+      // ahead." over a dead request would have the admin write off real
+      // bookings. The panel keeps its head; the body wears the tab loader's
+      // .empty-state.error dress, scoped to this panel.
+      const failed = el("div");
+      failed.className = "empty-state error";
+      failed.setAttribute("role", "alert");
+      failed.appendChild(el("p", "Could not load upcoming bookings."));
+      const retry = el("button", "Retry");
+      retry.className = "btn sm";
+      retry.addEventListener("click", () => {
+        // The clicked Retry is rebuilt away by the reload: on success land
+        // on the fresh panel, on a still-dead refetch re-enable and hold.
+        retry.disabled = true;
+        loadOverview().then(() => {
+          const again = document.querySelector("#overview .next-bookings");
+          if (again) { again.tabIndex = -1; again.focus({ preventScroll: true }); }
+        }, () => { retry.disabled = false; retry.focus(); });
+      });
+      failed.appendChild(retry);
+      panel.appendChild(failed);
+    } else if (!list.length) {
       const empty = el("p", "Nothing booked ahead.");
       empty.className = "hint";
       panel.appendChild(empty);
@@ -277,7 +301,7 @@
       row.appendChild(who);
       panel.appendChild(row);
     }
-    if ((upcoming.bookings || []).length > 5) {
+    if (upcoming && (upcoming.bookings || []).length > 5) {
       const more = el("button", "View all bookings");
       more.className = "btn sm secondary";
       more.addEventListener("click", () => show("bookings"));

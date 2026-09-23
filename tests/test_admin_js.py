@@ -243,3 +243,26 @@ def test_duration_cells_wrap_after_a_slash_never_inside_an_entry():
     cell = js.split("const duration =", 1)[1].split(";", 1)[0]
     assert "solidDuration(" in cell
     assert "durationList(" in cell
+
+
+def test_a_failed_upcoming_load_never_reads_as_an_empty_shelf():
+    # The overview swallows the bookings call so one dead endpoint cannot
+    # take the whole section down — but a swallowed {} used to render as
+    # "Nothing booked ahead.", telling the admin to write off real bookings.
+    # The failure must arrive as null and wear the tab loader's error dress,
+    # with the same keyboard contract as its Retry buttons.
+    js = _admin_js()
+    overview = js.split("async function loadOverview", 1)[1].split("async function loadTypes", 1)[0]
+    assert 'call("/bookings?status=confirmed").catch(() => null)' in overview
+    # Only the bookings call is converted to null; event-types stays a
+    # swallowed {} because it only degrades labels, never lies.
+    assert overview.count(".catch(() => ({}))") == 1
+    failed = overview.split("upcoming === null", 1)[1]
+    assert 'failed.className = "empty-state error"' in failed
+    assert 'el("p", "Could not load upcoming bookings.")' in failed
+    assert failed.count('retry.className = "btn sm"') == 1
+    assert "again.focus({ preventScroll: true })" in failed
+    assert "retry.disabled = false; retry.focus();" in failed
+    # The true empty keeps its quiet shelf — only the failure changed voice.
+    quiet = failed.split("} else if (!list.length)", 1)[1]
+    assert 'el("p", "Nothing booked ahead.")' in quiet
