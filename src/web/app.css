@@ -562,6 +562,15 @@ main.centered .centerpiece { margin: auto; }
 }
 .centerpiece .status-orb.ok { background: var(--ok-soft); border: 1px solid var(--ok-border); color: var(--ok); box-shadow: 0 0 0 6px rgba(6, 118, 71, 0.06); }
 .centerpiece .status-orb.pending { background: var(--warn-soft); border: 1px solid var(--warn-border); color: var(--warn); box-shadow: 0 0 0 6px rgba(181, 71, 8, 0.06); }
+/* The pending receipt promises the page "rechecks every few seconds"; the
+ * orb keeps breathing so the wait reads as work in progress, not a frozen
+ * page. Reduced motion caps every animation at one silent run, and print
+ * turns them off entirely. */
+@keyframes orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.centerpiece .status-orb.pending {
+  animation: orb-in 340ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             orb-breathe 2.4s ease-in-out 700ms infinite;
+}
 .centerpiece .status-orb.failed { background: var(--danger-soft); border: 1px solid var(--danger-border); color: var(--danger); box-shadow: 0 0 0 6px rgba(180, 35, 24, 0.06); }
 .centerpiece p { color: var(--muted); }
 .centerpiece .detail-line { color: var(--ink); font-weight: 600; text-wrap: balance; }
