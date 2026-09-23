@@ -160,8 +160,10 @@ def landing_page(host_name, intro, types):
                 f"<div class=\"empty-state\"><h2>Nothing bookable right now</h2>"
                 f"<p>There are no meeting types listed at the moment. "
                 f"If you have a direct link, it still works.</p></div>")
-    return http.html_response(200, shell(host_name, body, brand_name=host_name,
-                                         main_class="landing"))
+    # The hero owns the host identity here: repeating the same avatar and name
+    # in the sticky header one scroll-height above it reads as a rendering bug,
+    # so the landing header falls back to the product brand instead.
+    return http.html_response(200, shell(host_name, body, main_class="landing"))
 
 
 def _status_box(status_id, initial_text, extra_cls=""):
