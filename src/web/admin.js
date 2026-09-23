@@ -351,14 +351,6 @@
     box.appendChild(wrap);
   }
 
-  function flashError(container, message) {
-    const note = el("span", message);
-    note.className = "saved-note error visible";
-    note.setAttribute("role", "alert");
-    container.prepend(note);
-    setTimeout(() => note.remove(), 4000);
-  }
-
   // --- booking questions editor ---------------------------------------------
   // The questions a visitor answers after picking a time. Everything here is
   // host-owned configuration: labels, answer types, required flags, choice
@@ -693,7 +685,14 @@
         } catch (err) {
           disarm();
           cancel.disabled = false;
-          flashError(box, `Could not cancel that booking — ${why(err)}.`);
+          // The verdict belongs to the row the admin acted on — beside the
+          // actions, matching the types table — not at the section top,
+          // a screen away from a tall table's failing row.
+          const note = el("span", `Could not cancel that booking — ${why(err)}.`);
+          note.className = "saved-note error visible row-error";
+          note.setAttribute("role", "alert");
+          actions.appendChild(note);
+          setTimeout(() => note.remove(), 4000);
         }
       });
       cancel.addEventListener("keydown", (ev) => {
