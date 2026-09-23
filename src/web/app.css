@@ -863,13 +863,16 @@ table.admin td.col-slug { overflow-wrap: normal; }
 /* A slug is one token: mid-word it reads broken, and even normal wrapping
  * breaks at the hyphen ("deep- / dive"). Desktop table mode keeps it whole;
  * the folded layout's value column is wide enough not to need it. */
-@media (min-width: 48rem) { table.admin td.col-slug { white-space: nowrap; } }
+@media (min-width: 71rem) { table.admin td.col-slug { white-space: nowrap; } }
 /* Free-copy columns keep a readable floor: a long fixed-copy cell (a wide
  * slug, an armed action stack) can starve them to one fragment a line, and
  * anywhere-wrap hides the collapse by shrinking their min-content away. The
  * floor pushes back — squeezed past it, the table grows and .table-scroll
  * scrolls instead of clipping buttons or stacking title fragments. */
-@media (min-width: 48rem) {
+/* The table and the fold trade places at 71rem: floored columns plus a
+ * full action stack need ~1060px, so below that the card fold serves every
+ * row completely where the table could only scroll and slice a button. */
+@media (min-width: 71rem) {
   table.admin td.col-title, table.admin td.col-name { overflow-wrap: normal; min-width: 12rem; }
   /* An email is one token, not a word: inside the floored invitee cell it
    * still breaks anywhere rather than dragging the column wide. */
@@ -877,7 +880,7 @@ table.admin td.col-slug { overflow-wrap: normal; }
 }
 table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 
-@media (max-width: 48rem) {
+@media (max-width: 71rem) {
   /* Tables become stacked card rows: label/value lines stay readable at
    * 360px, and buttons or badges never inherit the value column's wrapping. */
   table.admin, table.admin tbody, table.admin tr, table.admin td { display: block; width: 100%; }
