@@ -413,8 +413,11 @@ textarea { width: 100%; resize: vertical; }
 }
 /* break-word, not anywhere: names like America/Los_Angeles carry no
  * spaces, so anywhere shredded them mid-word at 320; break-word only
- * splits when the whole name truly cannot fit on its own line. */
-.tz-zone { overflow-wrap: break-word; }
+ * splits when the whole name truly cannot fit on its own line. And the
+ * row is a flex container, whose items never shrink below min-content
+ * unless told to — without min-width the name box pinned the row wide
+ * and offsets like Rio_Gallegos's rode clean out of the list. */
+.tz-zone { min-width: 0; overflow-wrap: break-word; }
 .tz-off { flex: none; color: var(--muted); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
 .tz-row:hover, .tz-row.is-active { background: var(--accent-soft); }
 .tz-row[aria-selected="true"] { color: var(--accent-strong); font-weight: 650; }
