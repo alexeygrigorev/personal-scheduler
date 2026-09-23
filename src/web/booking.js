@@ -547,6 +547,10 @@
         setStatus("error", "That time was just taken. Your details are kept — pick a new time below.");
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         document.getElementById("time-list").scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+        // Focus stayed on Confirm, which the scroll just carried off-screen on
+        // a phone; the first open slot is where picking continues.
+        const fresh = document.querySelector("#time-list button");
+        if (fresh) fresh.focus({ preventScroll: true });
         return;
       }
       if (!res.ok) {
