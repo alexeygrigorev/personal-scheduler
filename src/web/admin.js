@@ -371,12 +371,19 @@
                           ["single_choice", "Single choice"]];
 
   function normalizeQuestion(raw, index) {
+    const limit = Math.min(Math.max(parseInt(raw.max_length, 10) || 2000, 1), 5000);
     return {
       id: raw.id || `q-${index}-${Math.random().toString(36).slice(2, 7)}`,
       label: raw.label || "",
-      type: QUESTION_KINDS.some(([kind]) => kind === raw.type) ? raw.type : "text",
+      // A stored type wins; a legacy question with none resolves the way
+      // the visitor page resolves it — length decides — so the editor
+      // shows, and saves back, the widget the visitor actually gets
+      // instead of quietly demoting a 500-character answer to one line.
+      type: QUESTION_KINDS.some(([kind]) => kind === raw.type)
+        ? raw.type
+        : (raw.type == null && limit >= 200 ? "textarea" : "text"),
       required: !!raw.required,
-      max_length: Math.min(Math.max(parseInt(raw.max_length, 10) || 2000, 1), 5000),
+      max_length: limit,
       choices: (raw.choices || []).map((c) => String(c)),
       allow_other: !!raw.allow_other,
     };
