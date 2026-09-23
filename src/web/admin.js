@@ -360,12 +360,15 @@
       edit.addEventListener("click", () => {
         // One editor per type at a time, enforced: opening another type's
         // editor closes the open one, and clicking this button while its
-        // own editor is up toggles it away.
+        // own editor is up toggles it away. A close that would drop
+        // unsaved edits stops here once, wearing the arm verdict.
         const wasOpen = openEditor && openEditor.button === edit;
+        if (openEditor && !openEditor.requestClose()) return;
         closeEditor();
         if (wasOpen) return;
         edit.setAttribute("aria-expanded", "true");
-        openEditor = { button: edit, editorRow: openQuestionsEditor(t, row) };
+        const opened = openQuestionsEditor(t, row);
+        openEditor = { button: edit, editorRow: opened.row, requestClose: opened.requestClose };
       });
       stack.appendChild(edit);
       const preview = el("a", "Preview");
@@ -563,7 +566,7 @@
     const close = el("button", "Close");
     close.type = "button";
     close.className = "btn secondary";
-    close.addEventListener("click", () => closeEditor());
+    close.addEventListener("click", () => { if (requestClose()) closeEditor(); });
     const list = el("div");
     rerender = () => {
       list.replaceChildren(...items.map((item, i) => questionCard(item, i, items, rerender)));
@@ -593,6 +596,31 @@
     const note = el("span");
     note.className = "saved-note";
     note.setAttribute("role", "status");
+    // Unsaved edits must not vanish on a close. There is no native dialog
+    // in this app: the first close attempt arms a verdict ("close again
+    // to discard"), the second goes through — the same arm grammar as the
+    // danger buttons, expiring after four seconds like they do.
+    let dirty = false, discardArmed = false, disarmTimer = 0;
+    panel.addEventListener("input", () => { dirty = true; }, true);
+    panel.addEventListener("change", () => { dirty = true; }, true);
+    const requestClose = () => {
+      if (!dirty) return true;
+      if (!discardArmed) {
+        discardArmed = true;
+        note.textContent = "Unsaved edits — close again to discard them.";
+        note.classList.add("error", "visible");
+        clearTimeout(disarmTimer);
+        disarmTimer = setTimeout(() => {
+          discardArmed = false;
+          if (note.textContent.startsWith("Unsaved")) {
+            note.classList.remove("error", "visible");
+            note.textContent = "";
+          }
+        }, 4000);
+        return false;
+      }
+      return true;
+    };
     foot.append(save, close, note);
     panel.appendChild(foot);
     save.addEventListener("click", async () => {
@@ -641,6 +669,7 @@
         });
         note.textContent = "Saved";
         note.classList.add("visible");
+        dirty = false;
         setTimeout(() => {
           // Only tear down while this editor is still the open one: an
           // admin who opened another type's editor during the pause must
@@ -660,7 +689,7 @@
     });
     cell.appendChild(panel);
     hostRow.after(editorRow);
-    return editorRow;
+    return { row: editorRow, requestClose };
   }
 
   async function loadBookings() {
