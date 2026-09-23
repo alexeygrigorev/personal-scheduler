@@ -388,6 +388,9 @@ textarea { width: 100%; resize: vertical; }
   height: 2.75rem; padding: 0; line-height: 1;
   font-size: var(--fs-secondary); font-variant-numeric: tabular-nums;
 }
+/* Day cells pin a 2.75rem circle in their column: width straight from the
+ * 1fr track turns the radius-999px chip into a stretched oval. */
+.day-grid > button { width: 2.75rem; justify-self: center; }
 .day-grid .pad { pointer-events: none; }
 .day-grid .empty-cell {
   grid-column: 1 / -1;
