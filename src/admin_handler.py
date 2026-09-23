@@ -127,11 +127,25 @@ def _admin_api(event, segments, method, email):
             source = store.get_event_type(body["id"])
             if source is None:
                 raise HttpError(404, "unknown_type", "Unknown meeting type.")
+            # A copy must never fight over the source's address, and a
+            # second copy must not fight the first: uniquify against every
+            # live slug here, so Duplicate stays a one-click action.
+            types = store.list_event_types()
+            taken = {t["slug"] for t in types}
+            taken |= {a for t in types for a in t.get("aliases", [])}
+            slug = f"{source['slug']}-copy"
+            n = 2
+            while slug in taken:
+                slug = f"{source['slug']}-copy-{n}"
+                n += 1
             clone = dict(source, id=security.new_id("et_"),
-                         slug=f"{source['slug']}-copy", aliases=[],
+                         slug=slug, aliases=[],
                          title=f"{source['title']} (copy)", version=1,
                          position=int(source.get("position", 0)) + 1)
-            store.put_event_type(clone)
+            try:
+                store.put_event_type(clone)
+            except ValueError as exc:
+                raise HttpError(422, "invalid_input", str(exc))
             return http.json_response(201, store.get_event_type(clone["id"]))
         body = dict(body, id=body.get("id") or security.new_id("et_"), version=1)
         try:

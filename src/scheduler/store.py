@@ -203,7 +203,16 @@ def put_event_type(data: dict):
     errors = et.validate()
     if errors:
         raise ValueError("; ".join(errors))
+    # A slug pointer maps one public address to one type, and writes go
+    # through unguarded for every other field: without this check a save
+    # carrying a colliding slug would silently repoint another type's page.
     previous = get_event_type(et.id)
+    for pointer in _event_pointers(et.id, et.slug, et.aliases):
+        holder = _get(pointer, "META")
+        if holder and holder.get("event_type_id") not in (None, et.id):
+            address = pointer[len("SLUG#"):]
+            raise ValueError(
+                f"The address /{address} already belongs to another meeting type.")
     writes = [
         {"Put": {
             "TableName": config.TABLE_NAME,

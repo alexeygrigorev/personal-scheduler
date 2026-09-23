@@ -278,6 +278,41 @@ def test_admin_console_edits_are_version_guarded(live):
     assert json.loads(updated["body"])["title"] == "Renamed"
 
 
+def test_a_save_cannot_steal_another_type_s_address(live):
+    # Slug pointers are last-write-wins at the storage layer, so the guard
+    # lives in the save itself: a create or rename carrying an address that
+    # already belongs to another type is refused, not silently repointed.
+    cookies = [admin_session("host@datatalks.club")]
+    types = json.loads(call(admin_handler.lambda_handler, "/admin/api/event-types",
+                            cookies=cookies)["body"])["event_types"]
+    res = call(admin_handler.lambda_handler, "/admin/api/event-types",
+               method="POST", cookies=cookies,
+               body={"title": "Thief", "slug": types[0]["slug"]})
+    assert res.statusCode == 422
+    res = call(admin_handler.lambda_handler, f"/admin/api/event-types/{types[1]['id']}",
+               method="PUT", cookies=cookies,
+               body={"slug": types[0]["slug"], "expected_version": types[1]["version"]})
+    assert res.statusCode == 422
+
+
+def test_duplicate_stays_one_click_away_even_twice(live):
+    # Two copies of one type must not fight over -copy: the server
+    # uniquifies the clone's address, so the second click lands -copy-2
+    # instead of an error.
+    cookies = [admin_session("host@datatalks.club")]
+    types = json.loads(call(admin_handler.lambda_handler, "/admin/api/event-types",
+                            cookies=cookies)["body"])["event_types"]
+    first = json.loads(call(admin_handler.lambda_handler, "/admin/api/event-types",
+                            method="POST", cookies=cookies,
+                            body={"action": "duplicate", "id": types[0]["id"]})["body"])
+    assert first["slug"] == f"{types[0]['slug']}-copy"
+    second = json.loads(call(admin_handler.lambda_handler, "/admin/api/event-types",
+                             method="POST", cookies=cookies,
+                             body={"action": "duplicate", "id": types[0]["id"]})["body"])
+    assert second["slug"] == f"{types[0]['slug']}-copy-2"
+    assert second["id"] != first["id"]
+
+
 def test_pending_operation_has_a_status_view(live):
     live["provider"].timeout_once.add("create:op-pending-view")
     import scheduler.security as security_mod
