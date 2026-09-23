@@ -558,7 +558,6 @@
     const up = el("button", "↑");
     up.type = "button";
     up.className = "btn sm secondary";
-    up.setAttribute("aria-label", `Move question ${index + 1} up`);
     up.disabled = index === 0;
     up.addEventListener("click", () => {
       [items[index - 1], items[index]] = [items[index], items[index - 1]];
@@ -568,7 +567,6 @@
     const down = el("button", "↓");
     down.type = "button";
     down.className = "btn sm secondary";
-    down.setAttribute("aria-label", `Move question ${index + 1} down`);
     down.disabled = index === items.length - 1;
     down.addEventListener("click", () => {
       [items[index + 1], items[index]] = [items[index], items[index + 1]];
@@ -578,8 +576,20 @@
     const remove = el("button", "Remove");
     remove.type = "button";
     remove.className = "btn sm danger";
-    remove.setAttribute("aria-label", `Remove question ${index + 1}`);
     remove.addEventListener("click", () => { items.splice(index, 1); rerender(); });
+    // "Move question 3 up" names a position, not a question — a screen-reader
+    // host hopping these buttons hears numbers with nothing to anchor them.
+    // The name carries the question's own label, and follows the typing live
+    // since the label input can change without a rerender. An unnamed
+    // question falls back to the number the card's Q-chip shows.
+    const qName = () => item.label.trim() || `question ${index + 1}`;
+    const syncMoves = () => {
+      up.setAttribute("aria-label", `Move “${qName()}” up`);
+      down.setAttribute("aria-label", `Move “${qName()}” down`);
+      remove.setAttribute("aria-label", `Remove “${qName()}”`);
+    };
+    syncMoves();
+    labelInput.addEventListener("input", syncMoves);
     moves.append(up, down, remove);
     tail.appendChild(moves);
     card.appendChild(tail);

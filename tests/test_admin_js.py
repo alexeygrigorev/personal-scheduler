@@ -54,3 +54,43 @@ def test_saved_questions_reopen_on_the_row_they_belong_to():
     # fails.
     assert "'.actions-stack button[aria-expanded]'" in teardown
     assert js.count("loadTypes().then") == 2
+
+
+def test_question_move_buttons_name_the_question_they_move():
+    # "Move question 3 up" gives a screen-reader host a number with nothing
+    # to anchor it to. The names carry the question's own label, updated as
+    # the label is typed (typing never rerenders the card), and an unnamed
+    # question falls back to the number its visible Q-chip shows.
+    js = _admin_js()
+    card = js.split("const moves = el(\"div\");", 1)[1].split("moves.append(up, down, remove);", 1)[0]
+    assert "Move \u201c${qName()} up" not in card  # template quotes stay balanced
+    assert "qName" in card
+    assert 'up.setAttribute("aria-label", `\u201c' not in card  # names come from syncMoves
+    sync = card.split("const syncMoves = () => {", 1)[1].split("};", 1)[0]
+    assert '`Move \u201c${qName()}\u201d up`' in sync
+    assert '`Move \u201c${qName()}\u201d down`' in sync
+    assert '`Remove \u201c${qName()}\u201d`' in sync
+    assert 'item.label.trim() || `question ${index + 1}`' in card
+    # Live rename: the label input's existing listener updates item.label
+    # first, so the names follow the text as typed.
+    assert "labelInput.addEventListener(\"input\", syncMoves);" in card
+
+
+def test_question_move_buttons_name_the_question_they_move():
+    # "Move question 3 up" gives a screen-reader host a number with nothing
+    # to anchor it to. The names carry the question's own label, updated as
+    # the label is typed (typing never rerenders the card), and an unnamed
+    # question falls back to the number its visible Q-chip shows.
+    js = _admin_js()
+    card = js.split("const moves = el(\"div\");", 1)[1].split("moves.append(up, down, remove);", 1)[0]
+    assert "Move \u201c${qName()} up" not in card  # template quotes stay balanced
+    assert "qName" in card
+    assert 'up.setAttribute("aria-label", `\u201c' not in card  # names come from syncMoves
+    sync = card.split("const syncMoves = () => {", 1)[1].split("};", 1)[0]
+    assert '`Move \u201c${qName()}\u201d up`' in sync
+    assert '`Move \u201c${qName()}\u201d down`' in sync
+    assert '`Remove \u201c${qName()}\u201d`' in sync
+    assert 'item.label.trim() || `question ${index + 1}`' in card
+    # Live rename: the label input's existing listener updates item.label
+    # first, so the names follow the text as typed.
+    assert "labelInput.addEventListener(\"input\", syncMoves);" in card
