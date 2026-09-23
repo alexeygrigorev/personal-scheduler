@@ -328,7 +328,8 @@
           const statusText = document.querySelector("#booking-status .status-text");
           if (statusText &&
               (statusText.textContent.includes("just taken") ||
-               statusText.textContent.startsWith("Could not confirm"))) {
+               statusText.textContent.startsWith("Could not confirm") ||
+               statusText.textContent.includes("No time is picked yet"))) {
             setStatus("", "Day picked — now choose a time.");
           }
           renderDays(state.days);
@@ -423,7 +424,8 @@
         const statusText = document.querySelector("#booking-status .status-text");
         if (statusText &&
             (statusText.textContent.includes("just taken") ||
-             statusText.textContent.startsWith("Could not confirm"))) {
+             statusText.textContent.startsWith("Could not confirm") ||
+             statusText.textContent.includes("No time is picked yet"))) {
           setStatus("", "Time picked — confirm your details below.");
         }
         renderTimes(slots, { restoreFocus: true });
@@ -600,6 +602,35 @@
   async function submitBooking(ev) {
     ev.preventDefault();
     if (!validateDetails()) return;
+    if (!state.selectedStart) {
+      // A 409 or a day switch can leave the revealed form without a pick;
+      // POSTing anyway only earns a vague server 400 about the start. The
+      // ask points at the pick that still exists — this day's slots, another
+      // day with open times, or the next month when none do — and the
+      // keyboard lands where picking continues.
+      const fresh = document.querySelector("#time-list button");
+      const monthName = state.month.toLocaleDateString([], { month: "long", timeZone: "UTC" });
+      const ask = fresh ? "Pick a time below."
+        : state.days.length ? "Pick a day with open times in the calendar."
+        : `No open times left in ${monthName} — try the next month.`;
+      const say = `No time is picked yet — your details are kept. ${ask}`;
+      setStatus("error", say);
+      let verdict = document.getElementById("times-verdict");
+      if (!verdict) {
+        verdict = document.createElement("p");
+        verdict.id = "times-verdict";
+        verdict.className = "times-verdict";
+        verdict.tabIndex = -1;
+        timesHead.appendChild(verdict);
+      }
+      timesHead.hidden = false;
+      verdict.textContent = say;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      timesHead.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+      if (fresh) fresh.focus({ preventScroll: true });
+      else verdict.focus({ preventScroll: true });
+      return;
+    }
     const payload = {
       type: cfg.slug,
       duration: state.duration,

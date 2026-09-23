@@ -139,6 +139,33 @@ def test_picking_a_fresh_slot_retires_the_taken_verdict():
     assert 'setStatus("error"' not in pick
 
 
+def test_confirming_without_a_pick_never_reaches_the_server():
+    # A 409 or a day switch can leave the revealed form with no picked slot,
+    # and Confirm used to POST the empty start anyway — a round trip that
+    # could only come back as a vague server 400 about the start time. The
+    # pre-flight speaks the same one-sentence grammar as the taken banner,
+    # branches the ask on what the page can actually offer (this day's
+    # slots, another day with open times, or the next month when none do),
+    # and hands the keyboard to the pick that still exists.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    guard = js.split("async function submitBooking", 1)[1].split("const payload", 1)[0]
+    assert "if (!state.selectedStart)" in guard
+    assert "Pick a time below." in guard
+    assert "Pick a day with open times in the calendar." in guard
+    assert "No open times left in ${monthName}" in guard
+    # the verdict reuses the banner's exact sentence — one shared string,
+    # so the two can never drift into two different problems
+    assert guard.count("No time is picked yet — your details are kept. ${ask}") == 1
+    assert 'verdict.textContent = say;' in guard
+    # the guard sits before the payload build: a start-less submit never
+    # reaches the fetch
+    body = js.split("async function submitBooking", 1)[1]
+    assert body.index("No time is picked yet") < body.index("fetch(")
+    # and a fresh pick retires this banner too, not just the taken one
+    pick = js.split("state.selectedEnd = slot.end;", 1)[1].split("});", 1)[0]
+    assert 'includes("No time is picked yet")' in pick
+
+
 def test_taken_slot_verdict_promises_only_what_remains():
     # A 409 reload that still has slots may say "pick a new time below";
     # one that comes back empty must not — nothing is below, and an
