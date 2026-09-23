@@ -688,6 +688,10 @@
         }, 900);
       } catch (err) {
         save.disabled = false;
+        // Disabling a focused button drops focus to the body; putting the
+        // keyboard back on the verdict's own button keeps a keyboard admin
+        // in the conversation instead of dumping them at the document.
+        save.focus();
         note.textContent = `Could not save — ${why(err)}.`;
         note.setAttribute("role", "alert");
         note.classList.add("error", "visible");
