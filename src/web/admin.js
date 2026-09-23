@@ -701,6 +701,7 @@
     // input first stranded "minutes" beside the dash, then the dash beside
     // nothing, when invitee-picks was chosen.
     const fixedWrap = el("span");
+    fixedWrap.className = "dur-fixed";
     fixedWrap.appendChild(document.createTextNode(" — "));
     const fixedInput = el("input");
     fixedInput.type = "number";
