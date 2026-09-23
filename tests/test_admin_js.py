@@ -118,6 +118,10 @@ def test_details_editor_flags_bad_fields_before_the_save_flies():
     # a short-circuit on the first.
     assert "if (!firstBad) firstBad = input;" in editor
     assert "firstBad = firstBad || flag(" not in editor
+    # Each attempt re-ranks the offenders from zero: firstBad kept from the
+    # last bounce refocused a corrected field and bounced a valid save with
+    # nothing left to highlight.
+    assert "firstBad = null;" in preflight
 
 
 def test_details_editor_hands_the_keyboard_to_its_own_button():

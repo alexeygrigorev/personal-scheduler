@@ -759,6 +759,10 @@
       // save never flies just to bounce.
       [titleInput, slugInput, fixedInput, pickRadio].forEach((n) => n.removeAttribute("aria-invalid"));
       [titleField, slugField, durField].forEach((f) => { f.querySelector(".error").textContent = ""; });
+      // The offender ranking belongs to this attempt alone: a firstBad
+      // kept from the last bounce refocused a corrected field and bounced
+      // a now-valid save with nothing left to highlight.
+      firstBad = null;
       draft.title = titleInput.value.trim();
       draft.slug = slugInput.value.trim();
       const description = descInput.value.trim();
