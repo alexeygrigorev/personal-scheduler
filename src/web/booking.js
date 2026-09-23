@@ -573,6 +573,11 @@
           verdict.tabIndex = -1;
           timesHead.appendChild(verdict);
         }
+        // When the reload finds no bookable times the whole head is hidden,
+        // which would park the verdict invisible and unfocusable — the exact
+        // moment the visitor most needs it. The head stays up; its hint
+        // already says the day has no open times.
+        timesHead.hidden = false;
         verdict.textContent = "That time was just taken — your details are kept. Pick a new time below.";
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         timesHead.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
