@@ -192,6 +192,10 @@ def booking_page(item, host_name, viewer_tz="UTC"):
     for question in item.get("questions", []):
         qid = _esc(question.get("id", ""))
         required = " required" if question.get("required") else ""
+        # One visible grammar for "this answer is not optional": a red star
+        # on every required label, whatever control the question renders.
+        req_mark = ('<span class="req" aria-hidden="true"> *</span>'
+                    if question.get("required") else "")
         limit = int(question.get("max_length", 2000))
         qtype = question.get("type")
         if qtype is None:
@@ -218,7 +222,7 @@ def booking_page(item, host_name, viewer_tz="UTC"):
                 f"<div class=\"field choice-field\" data-choice-group=\"{qid}\" "
                 f"role=\"radiogroup\" aria-labelledby=\"ql-q-{qid}\" "
                 f"aria-describedby=\"err-q-{qid}\">"
-                f"<span class=\"q-label\" id=\"ql-q-{qid}\">{label}{' *' if question.get('required') else ''}</span>"
+                f"<span class=\"q-label\" id=\"ql-q-{qid}\">{label}{req_mark}</span>"
                 f"{''.join(choices)}"
                 f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
             continue
@@ -227,13 +231,15 @@ def booking_page(item, host_name, viewer_tz="UTC"):
         # cap, so an optional 200-character company field reads as one.
         if qtype == "textarea":
             control = (f"<textarea id=\"q-{qid}\" data-question=\"{qid}\" rows=\"3\" "
-                       f"maxlength=\"{limit}\"{required}></textarea>")
+                       f"maxlength=\"{limit}\"{required} "
+                       f"aria-describedby=\"err-q-{qid}\"></textarea>")
             counter = "<span class=\"char-count\" aria-live=\"polite\"></span>"
         else:
-            control = f"<input id=\"q-{qid}\" data-question=\"{qid}\" maxlength=\"{limit}\"{required}>"
+            control = (f"<input id=\"q-{qid}\" data-question=\"{qid}\" maxlength=\"{limit}\""
+                       f"{required} aria-describedby=\"err-q-{qid}\">")
             counter = ""
         questions.append(
-            f"<div class=\"field\"><label for=\"q-{qid}\">{label}</label>"
+            f"<div class=\"field\"><label for=\"q-{qid}\">{label}{req_mark}</label>"
             f"{control}{counter}"
             f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
     valid_viewer_tz = viewer_tz if is_valid_zone(viewer_tz) else "UTC"
@@ -300,10 +306,10 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 <div id="details-form-wrap" hidden>
 <div class="summary-card">{icon('clock', 'ic')}<span id="selection-summary" aria-live="polite">No time selected yet.</span></div>
 <form id="details-form" novalidate>
-<div class="field"><label for="f-name">Name</label>
-<input id="f-name" autocomplete="name" maxlength="200" required><span class="error" id="err-name" role="alert"></span></div>
-<div class="field"><label for="f-email">Email</label>
-<input id="f-email" type="email" autocomplete="email" maxlength="320" required><span class="error" id="err-email" role="alert"></span></div>
+<div class="field"><label for="f-name">Name<span class="req" aria-hidden="true"> *</span></label>
+<input id="f-name" autocomplete="name" maxlength="200" required aria-describedby="err-name"><span class="error" id="err-name" role="alert"></span></div>
+<div class="field"><label for="f-email">Email<span class="req" aria-hidden="true"> *</span></label>
+<input id="f-email" type="email" autocomplete="email" maxlength="320" required aria-describedby="err-email"><span class="error" id="err-email" role="alert"></span></div>
 <div class="field"><label for="f-notes">Purpose / agenda</label>
 <textarea id="f-notes" rows="3" maxlength="2000"></textarea><span class="char-count" aria-live="polite"></span><span class="error" id="err-notes" role="alert"></span></div>
 {''.join(questions)}
