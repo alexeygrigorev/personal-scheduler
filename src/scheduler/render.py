@@ -74,9 +74,19 @@ def _initials(name):
 
 
 def shell(title, body, *, scripts=(), brand_name=None, head_side="", main_class="",
-          tz_note=None, head_extra=""):
+          tz_note=None, head_extra="", admin_link=True):
     mark = _esc(_initials(brand_name)) if brand_name else icon("calendar")
-    side = f'<div class="site-head-side">{head_side}</div>' if head_side else ""
+    if head_side:
+        side = f'<div class="site-head-side">{head_side}</div>'
+    elif admin_link:
+        # The public pages are invitee-facing, but the host arrives here too
+        # — usually from their own browser with no console bookmark. A quiet
+        # door in the header (as in dataqna) beats remembering /admin; the
+        # destination enforces the allowlist itself.
+        side = ('<div class="site-head-side"><a class="btn ghost sm" '
+                'href="/auth/login?next=%2Fadmin">Admin log in</a></div>')
+    else:
+        side = ""
     tags = "\n".join(f'<script src="/assets/{name}" defer></script>' for name in scripts)
     favicon = ("<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' "
                "viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' "
@@ -643,7 +653,8 @@ def login_gate(login_url):
             f"calendar connection — signed in with the host account.</p>"
             f"<a class=\"btn\" href=\"{_esc(login_url)}\">Log in</a>"
             f"</div>")
-    return http.html_response(200, shell("Scheduler admin", body, main_class="login"))
+    return http.html_response(200, shell("Scheduler admin", body, main_class="login",
+                                         admin_link=False))
 
 
 def admin_shell(email):

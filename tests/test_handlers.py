@@ -81,6 +81,10 @@ def test_four_links_landing_visibility_and_invalid_links(live):
     landing = call(public_handler.lambda_handler, "/")["body"]
     assert "/dtc" in landing and "/60min" in landing
     assert "/community" not in landing and "/extended" not in landing
+    # The host's quiet way back to the console: a header button on every
+    # public page pointing at the login that lands on /admin.
+    assert "Admin log in" in landing
+    assert "/auth/login?next=%2Fadmin" in landing
     assert call(public_handler.lambda_handler, "/nope").statusCode == 404
     assert call(public_handler.lambda_handler, "/api/v1/types/nope").statusCode == 404
     listed = json.loads(call(public_handler.lambda_handler, "/api/v1/types")["body"])
@@ -254,6 +258,9 @@ def test_admin_auth_boundary(live):
     assert gate.statusCode == 200
     assert "Log in" in gate["body"]
     assert "/auth/login?next=" in gate["body"]
+    # The gate's own Log in button is the action here; the public pages'
+    # header button is suppressed so the page never says it twice.
+    assert "Admin log in" not in gate["body"]
     # Deep links keep the silent redirect so the `next` target survives.
     deep = call(admin_handler.lambda_handler, "/admin/api/overview")
     assert deep.statusCode == 302
@@ -263,6 +270,7 @@ def test_admin_auth_boundary(live):
     host = call(admin_handler.lambda_handler, "/admin",
                 cookies=[admin_session("host@datatalks.club")])
     assert host.statusCode == 200
+    assert "Admin log in" not in host["body"]
     overview = call(admin_handler.lambda_handler, "/admin/api/overview",
                     cookies=[admin_session("host@datatalks.club")])
     assert overview.statusCode == 200
