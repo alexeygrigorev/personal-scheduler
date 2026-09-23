@@ -178,13 +178,15 @@
     return { wrap, tbody };
   }
 
-  function emptyRow(tbody, span, text) {
-    const row = el("tr");
-    const cell = el("td", text);
-    cell.colSpan = span;
-    cell.className = "table-empty";
-    row.appendChild(cell);
-    tbody.appendChild(row);
+  // An empty tab wears the landing's dashed empty-state panel instead of a
+  // table whose only row is the message: column headers promise data the
+  // table never delivers. Same anatomy as the landing's — h2 lead, muted p.
+  function emptyPanel(title, hint) {
+    const panel = el("div");
+    panel.className = "empty-state";
+    panel.appendChild(el("h2", title));
+    if (hint) panel.appendChild(el("p", hint));
+    return panel;
   }
 
   async function loadOverview() {
@@ -354,8 +356,17 @@
         }, 4000);
       }
     });
+    const types = data.event_types || [];
+    if (!types.length) {
+      // The create button above stays — on an empty shelf it is the
+      // only way forward — but the table never renders: its headers
+      // promise data the shelf cannot fill.
+      box.appendChild(emptyPanel("No event types yet.",
+        "Create one with the button above."));
+      return;
+    }
     const { wrap, tbody } = tableView([["Title", "col-title"], ["Slug", "col-slug"], ["Duration", ""], ["Visibility", ""], ["", "col-actions"]]);
-    for (const t of data.event_types || []) {
+    for (const t of types) {
       const row = el("tr");
       // Post-create and post-duplicate reloads aim the keyboard at the
       // fresh row by id: the clone's sort position is the server's call,
@@ -534,7 +545,6 @@
       row.appendChild(actions);
       tbody.appendChild(row);
     }
-    if (!(data.event_types || []).length) emptyRow(tbody, 5, "No event types yet.");
     box.appendChild(wrap);
   }
 
@@ -1184,8 +1194,14 @@
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const box = document.getElementById("bookings");
     box.innerHTML = "";
+    const bookings = data.bookings || [];
+    if (!bookings.length) {
+      box.appendChild(emptyPanel("No confirmed bookings yet.",
+        "Confirmed bookings appear here with their manage actions."));
+      return;
+    }
     const { wrap, tbody } = tableView([["When", ""], ["Type", "col-type"], ["Invitee", "col-name"], ["Status", ""], ["", "col-actions"]]);
-    for (const b of data.bookings || []) {
+    for (const b of bookings) {
       const row = el("tr");
       const when = el("td", fmtWhen(b.start_iso));
       when.dataset.label = "When";
@@ -1282,7 +1298,6 @@
       row.appendChild(actions);
       tbody.appendChild(row);
     }
-    if (!(data.bookings || []).length) emptyRow(tbody, 5, "No confirmed bookings.");
     box.appendChild(wrap);
   }
 

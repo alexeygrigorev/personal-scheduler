@@ -872,7 +872,6 @@ table.admin td.col-slug { overflow-wrap: normal; }
   table.admin td.col-name .cell-break { overflow-wrap: anywhere; }
 }
 table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
-.table-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); }
 
 @media (max-width: 48rem) {
   /* Tables become stacked card rows: label/value lines stay readable at
