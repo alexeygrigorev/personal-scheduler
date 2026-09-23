@@ -163,6 +163,45 @@ def test_management_cancel_and_ics(live):
     assert "STATUS:CANCELLED" in ics["body"]
 
 
+def test_ics_escapes_text_and_carries_dtstamp():
+    ics = public_handler._ics_for_booking({
+        "id": "b-ics-1", "start_iso": "2026-10-09T07:00:00+00:00",
+        "end_iso": "2026-10-09T07:30:00+00:00", "status": "confirmed",
+        "snapshot": {"title": "Kickoff, planning; review \\ v2\nnext"}})
+    # DTSTAMP is REQUIRED (RFC 5545 §3.6.1); strict parsers drop files without it.
+    assert "DTSTAMP:20" in ics
+    assert "SUMMARY:Kickoff\\, planning\\; review \\\\ v2\\nnext" in ics
+    assert all(len(line) <= 75 for line in ics.split("\r\n"))
+
+
+def test_ics_folds_long_multibyte_lines_without_splitting_a_character():
+    title = "Quartiersrunde und Ausblick: " + "Schöne neue Termine, " * 6 + "Zürich"
+    ics = public_handler._ics_for_booking({
+        "id": "b-ics-2", "start_iso": "2026-10-09T07:00:00+00:00",
+        "end_iso": "2026-10-09T08:00:00+00:00", "snapshot": {"title": title}})
+    for line in ics.encode("utf-8").split(b"\r\n"):
+        assert len(line) <= 75, line
+    unfolded = ics.replace("\r\n ", "")
+    summary = next(l for l in unfolded.split("\r\n") if l.startswith("SUMMARY:"))
+    assert summary == "SUMMARY:" + public_handler._ics_escape(title)
+
+
+def test_ics_download_is_named_by_reference(live):
+    res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
+        "type": "dtc", "duration": 30, "start": berlin(9, "09:00").isoformat(),
+        "answers": {"discuss": "Scheduler migration chat"},
+        "name": "Ada", "email": "ada@example.com", "idempotency_key": "ics-name-1"})
+    base = json.loads(res["body"])["manage_url"].replace("https://scheduler.test", "")
+    token = base.split("/m/")[1]
+    booking = store.query_bookings("2026-10-09T00:00:00+00:00", "2026-10-10T00:00:00+00:00")[0]
+    ics = call(public_handler.lambda_handler, f"/api/v1/manage/{token}/ics")
+    assert ics.statusCode == 200
+    # Two archived downloads named booking.ics collide into "booking (1).ics";
+    # each file must carry its own reference.
+    assert ics.headers["content-disposition"] == \
+        f'attachment; filename="booking-{booking["reference"]}.ics"'
+
+
 def test_reschedule_is_refused_while_a_cancellation_is_pending(live):
     """A cancel reconciling in the background must not race an accepted
     reschedule; until the outcome settles, the invitee is refused."""

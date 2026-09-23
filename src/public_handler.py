@@ -6,6 +6,7 @@ opaque slot offer is never a lock on the calendar.
 """
 
 import logging
+import re
 import time
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -192,6 +193,32 @@ def _operation_status(operation_id):
     return http.json_response(200, result)
 
 
+def _ics_escape(text: str) -> str:
+    """RFC 5545 TEXT: backslash, semicolon, comma, and newlines carry meaning
+    inside a property value, so a plain title like 'Kickoff, scoping' would
+    otherwise corrupt the line for strict parsers."""
+    return (str(text).replace("\\", "\\\\").replace(";", "\\;")
+            .replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n"))
+
+
+def _ics_fold(line: str) -> str:
+    """RFC 5545 §3.1: content lines longer than 75 octets fold as CRLF plus a
+    single space. Splitting on octets, never mid-UTF-8-sequence, keeps a
+    non-ASCII title intact after unfolding."""
+    raw = line.encode("utf-8")
+    if len(raw) <= 75:
+        return line
+    chunks = []
+    while raw:
+        budget = 75 if not chunks else 74  # continuation lines carry the space
+        take = min(budget, len(raw))
+        while take < len(raw) and (raw[take] & 0xC0) == 0x80:
+            take -= 1
+        chunks.append(raw[:take].decode("utf-8"))
+        raw = raw[take:]
+    return "\r\n ".join(chunks)
+
+
 def _ics_for_booking(booking: dict) -> str:
     def stamp(value):
         return parse_iso(value).strftime("%Y%m%dT%H%M%SZ")
@@ -201,14 +228,34 @@ def _ics_for_booking(booking: dict) -> str:
     # The file must agree with the booking: a canceled meeting served as
     # STATUS:CONFIRMED would re-add a dead meeting to the invitee's calendar.
     status = "CANCELLED" if booking.get("status") == "canceled" else "CONFIRMED"
-    return ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//scheduler//booking//EN\r\n"
-            "BEGIN:VEVENT\r\n"
-            f"UID:{uid}\r\n"
-            f"DTSTART:{stamp(booking['start_iso'])}\r\n"
-            f"DTEND:{stamp(booking['end_iso'])}\r\n"
-            f"SUMMARY:{title}\r\n"
-            f"STATUS:{status}\r\n"
-            "END:VEVENT\r\nEND:VCALENDAR\r\n")
+    # DTSTAMP is REQUIRED (RFC 5545 §3.6.1) and names when this file was made.
+    now = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//scheduler//booking//EN",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{now}",
+        f"DTSTART:{stamp(booking['start_iso'])}",
+        f"DTEND:{stamp(booking['end_iso'])}",
+        _ics_fold(f"SUMMARY:{_ics_escape(title)}"),
+        f"STATUS:{status}",
+        "END:VEVENT",
+        "END:VCALENDAR",
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+def _ics_headers(booking: dict) -> dict:
+    # Every download named booking.ics collides into "booking (1).ics" on the
+    # second archive; the reference makes each file self-identifying. The
+    # reference is generated (BK- + hex), but scrub it anyway so the header
+    # can never smuggle a raw token-shaped string.
+    reference = re.sub(r"[^A-Za-z0-9._-]", "", str(booking.get("reference", "") or ""))
+    filename = f"booking-{reference}.ics" if reference else "booking.ics"
+    return {"content-disposition": f'attachment; filename="{filename}"',
+            "cache-control": "no-store"}
 
 
 def _manage_api(event, token, action, method):
@@ -217,9 +264,9 @@ def _manage_api(event, token, action, method):
         return http.json_response(404, {"error": {"code": "invalid_link",
                                                   "message": "This management link is invalid or expired."}})
     if method == "GET" and action == "ics":
-        return http.response(200, _ics_for_booking(booking), content_type="text/calendar; charset=utf-8",
-                             headers={"content-disposition": 'attachment; filename="booking.ics"',
-                                      "cache-control": "no-store"})
+        return http.response(200, _ics_for_booking(booking),
+                             content_type="text/calendar; charset=utf-8",
+                             headers=_ics_headers(booking))
     if method == "GET" and action == "status":
         # Read-only settle probe for the manage page's recheck loop. The page
         # promised to reflect the outcome on its own; these are the two fields
@@ -346,8 +393,7 @@ def _serve_receipt_ics(operation_id):
     full = store.get_booking_by_reference(booking["reference"]) or {}
     return http.response(200, _ics_for_booking({**booking, **full}),
                          content_type="text/calendar; charset=utf-8",
-                         headers={"content-disposition": 'attachment; filename="booking.ics"',
-                                  "cache-control": "no-store"})
+                         headers=_ics_headers(full or booking))
 
 
 def lambda_handler(event, _context):
