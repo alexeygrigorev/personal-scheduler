@@ -216,13 +216,15 @@
     else syncMonthNav();
   }
 
-  async function loadAvailability(keepForm = false) {
+  async function loadAvailability(keepForm = false, keepSelection = false) {
     const seq = ++loadSeq;
     if (!keepForm) showDetails(false);
-    state.selectedStart = "";
-    // keepForm (a taken-slot retry) leaves the form on screen; its summary
-    // card must stop advertising the slot that just failed.
-    updateSummary();
+    if (!keepSelection) {
+      state.selectedStart = "";
+      // keepForm (a taken-slot retry) leaves the form on screen; its summary
+      // card must stop advertising the slot that just failed.
+      updateSummary();
+    }
     renderSkeleton();
     // The taken-slot verdict lives in the times head; a fresh load must not
     // resurface it when the head un-hides with new times.
@@ -260,6 +262,28 @@
     }
     state.days = Object.keys(byDay).sort();
     state.dayToSlots = byDay;
+    // A re-anchored load's verdict on a kept instant: still offered means the
+    // pick survives — the grid just presses the slot's new wall-clock face
+    // and the summary speaks the new dialect. Gone means the plain cleared
+    // state returns; a summary advertising a slot the grid no longer lists
+    // would read as a booking the page lost. The API names each slot in the
+    // requested zone's offset, so the kept instant is matched as an instant,
+    // not as the string it wore under the previous zone.
+    if (keepSelection && state.selectedStart) {
+      const keptMs = new Date(state.selectedStart).getTime();
+      const keptDay = new Date(state.selectedStart).toLocaleDateString("en-CA", { timeZone: state.timezone });
+      const keptSlot = (byDay[keptDay] || []).find((s) => new Date(s.start).getTime() === keptMs);
+      if (keptSlot) {
+        state.selectedDay = keptDay;
+        state.selectedStart = keptSlot.start;
+        state.selectedEnd = keptSlot.end;
+        updateSummary();
+      } else {
+        state.selectedStart = "";
+        showDetails(false);
+        updateSummary();
+      }
+    }
     if (!state.days.length) {
       setStatus("", "No bookable times in this month.");
       renderEmptyMonth();
@@ -901,30 +925,28 @@
   });
 
   // Duration selector comes before date and time choices; changing it
-  // recomputes the times, so the picked start dies with its slot set — but
-  // the day itself is only re-validated by the reload (kept when the new
-  // duration still offers slots on it, else the first bookable day), so
-  // exploring a duration never throws the visitor back to the top of the
-  // month they were halfway down.
+  // recomputes the times under the new footprint, and the picked start
+  // survives only when the re-anchored grid still offers it (the same
+  // grammar as the timezone switch) — the day itself is re-validated by
+  // the reload, so exploring a duration never throws the visitor back to
+  // the top of the month they were halfway down.
   document.querySelectorAll('input[name="duration"]').forEach((radio) => {
     radio.addEventListener("change", () => {
       state.duration = Number(radio.value);
-      state.selectedStart = "";
-      showDetails(false);
-      updateSummary();
-      loadAvailability();
+      loadAvailability(true, true);
     });
   });
   $("tz-select").addEventListener("change", (ev) => {
-    // A timezone change never silently keeps an absolute instant: the
-    // selection clears and the visitor reviews the re-rendered times.
+    // A timezone change re-anchors the wall clocks, so the picked instant is
+    // re-validated against the fresh grid: when the new zone still offers
+    // it, the pick survives and only the summary's dialect changes — the
+    // question a visitor asks the picker is "what does my slot look like
+    // here", not "make me pick again". An instant that vanished (taken, or
+    // the grid came back empty) falls back to the cleared state.
     state.timezone = ev.target.value;
     rememberTimezone();
     syncTzNote();
-    state.selectedStart = "";
-    showDetails(false);
-    updateSummary();
-    loadAvailability();
+    loadAvailability(true, true);
   });
   // Absolute month index, not a "2026-10"-style key: string keys compare
   // lexicographically, so October–December sorted before September and the

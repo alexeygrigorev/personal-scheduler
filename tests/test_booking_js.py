@@ -75,8 +75,7 @@ def test_every_offset_on_the_page_reads_one_dialect():
     assert '"UTC+00:00"' in label
 
 
-def test_the_offered_visitor_zone_leads_on_the_first_visit_too():
-    # The common zones already carry America/New_York, so a first visit (no
+def test_the_offered_visitor_zone_leads_on_the_first_visit_too():    # The common zones already carry America/New_York, so a first visit (no
     # tz cookie yet) hits neither the server-side pin nor the missing-zone
     # insert — the visitor's zone sat mid-list until the next page load,
     # when the picker's promise is that their zone leads at once.
@@ -99,3 +98,55 @@ def test_the_first_visit_move_keeps_the_offset_scan_true():
     assert "spokenOffset" in boot
     assert ".sort((a, b) => spokenOffset(a.textContent) - spokenOffset(b.textContent))" in boot
     assert "for (const o of rest) tzSelect.appendChild(o);" in boot
+
+
+def test_a_timezone_change_keeps_an_instant_the_fresh_grid_still_offers():
+    # The picker exists so a visitor can ask "what does my 11:30 look like in
+    # Tokyo" — and an answer that cleared the pick, closed the form, and
+    # demanded a fresh day+slot click turned that question into a trap. The
+    # re-anchored load must re-validate the kept instant: still offered means
+    # the pick survives (day re-pressed, end recomputed, summary speaking the
+    # new dialect); gone means the plain cleared state returns.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    verdict = js.split("state.dayToSlots = byDay;", 1)[1].split("if (!state.days.length)", 1)[0]
+    assert "keepSelection && state.selectedStart" in verdict
+    # The API names each slot in the requested zone's offset, so the kept
+    # instant must be matched as an instant — a string compare would face
+    # 11:30+02:00 against 18:30+09:00 and drop a slot the grid still offers.
+    assert "new Date(s.start).getTime() === keptMs" in verdict
+    kept = verdict.split("if (keptSlot) {", 1)[1].split("} else {", 1)[0]
+    assert "state.selectedDay = keptDay" in kept
+    assert "state.selectedStart = keptSlot.start" in kept
+    assert "state.selectedEnd = keptSlot.end" in kept
+    assert "updateSummary()" in kept
+    dropped = verdict.split("} else {", 1)[1]
+    assert 'state.selectedStart = ""' in dropped
+    assert "showDetails(false)" in dropped
+    assert "updateSummary()" in dropped
+
+
+def test_the_tz_and_duration_switches_never_preclear_the_pick():
+    # Clearing before the reload flashes "No time selected yet" at the very
+    # visitor who is about to get their pick back, and closes the form the
+    # kept-selection load is about to keep open. Both re-anchoring switches
+    # must hand the decision to the reload's verdict instead.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    tz = js.split('$("tz-select").addEventListener("change"', 1)[1].split("});", 1)[0]
+    assert 'state.selectedStart = ""' not in tz
+    assert "loadAvailability(true, true)" in tz
+    duration = js.split("state.duration = Number(radio.value);", 1)[1].split("});", 1)[0]
+    assert 'state.selectedStart = ""' not in duration
+    assert "loadAvailability(true, true)" in duration
+
+
+def test_the_kept_selection_load_skips_the_upfront_clear():
+    # The keepSelection mode leaves the summary advertising the picked
+    # instant while the fresh grid is in flight — the up-front clear (and
+    # its summary flash) belongs to the modes that have no pick to keep.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    head = js.split("async function loadAvailability(", 1)[1].split("renderSkeleton", 1)[0]
+    assert "keepSelection = false" in head
+    assert "if (!keepSelection) {" in head
+    guard = head.split("if (!keepSelection) {", 1)[1]
+    assert 'state.selectedStart = ""' in guard
+    assert "updateSummary()" in guard
