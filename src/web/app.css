@@ -269,6 +269,9 @@ main.landing {
   align-self: flex-start;
 }
 .meta-chip svg { color: var(--muted); }
+/* A cell of several pills (admin Duration column): the row wraps between
+ * chips, never inside one, and chips hug each other without separators. */
+.duration-chips { display: flex; flex-wrap: wrap; gap: 0.25rem 0.375rem; }
 .card .btn { margin-top: 1rem; align-self: stretch; }
 .card .btn::after { content: "→"; line-height: 1; transition: transform 140ms ease; }
 .card .btn:hover::after { transform: translateX(3px); }

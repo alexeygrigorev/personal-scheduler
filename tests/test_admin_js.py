@@ -219,30 +219,16 @@ def test_duplicate_copies_without_arming_and_aims_at_the_clone():
     assert '"saved-note error visible row-error"' in dup
 
 
-def test_duration_cells_wrap_after_a_slash_never_inside_an_entry():
-    # The Duration column lists pickable lengths: each entry ("1 hour") is
-    # one unit and must not split across lines, and the space before a
-    # separator slash is non-breaking, so a narrow cell wraps as
-    # "30 min / 45 min /" then "1 hour" — never "/ 1 hour" opening a line.
+def test_duration_cells_render_as_atomic_chips():
+    # The Duration column lists pickable lengths as the landing cards'
+    # pills: a chip is one atomic unit, so a narrow cell wraps a whole
+    # length to the next line and no separator slash can strand at either
+    # edge of a wrapped line ("30 min /" or "/ 1 hour").
     js = _admin_js()
-    assert 'replace(" ", "\\u00A0")' in js
-    assert 'join("\\u00A0/ ")' in js
-    cell = js.split("const duration =", 1)[1].split(";", 1)[0]
-    assert "solidDuration(" in cell
-    assert "durationList(" in cell
-
-
-def test_duration_cells_wrap_after_a_slash_never_inside_an_entry():
-    # The Duration column lists pickable lengths: each entry ("1 hour") is
-    # one unit and must not split across lines, and the space before a
-    # separator slash is non-breaking, so a narrow cell wraps as
-    # "30 min / 45 min /" then "1 hour" — never "/ 1 hour" opening a line.
-    js = _admin_js()
-    assert 'replace(" ", "\\u00A0")' in js
-    assert 'join("\\u00A0/ ")' in js
-    cell = js.split("const duration =", 1)[1].split(";", 1)[0]
-    assert "solidDuration(" in cell
-    assert "durationList(" in cell
+    assert 'row.className = "duration-chips"' in js
+    assert 'chip.className = "meta-chip"' in js
+    cell = js.split("const durationCell =", 1)[1].split("row.appendChild", 1)[0]
+    assert "durationChips(" in cell
 
 
 def test_a_failed_upcoming_load_never_reads_as_an_empty_shelf():

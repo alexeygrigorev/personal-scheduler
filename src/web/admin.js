@@ -87,13 +87,20 @@
     return hours === 1 ? "1 hour" : `${hours} hours`;
   }
 
-  // A duration reads as one unit — a narrow cell must split "1 hour" across
-  // lines. The list breaks after a slash, never before one: the space before
-  // "/" is non-breaking too, so a wrap strands "45 min /" at the line's end
-  // instead of opening the next line with an orphaned "/ 1 hour".
-  const solidDuration = (mins) => fmtDuration(mins).replace(" ", "\u00A0");
-  const durationList = (mins) =>
-    mins.map(solidDuration).join("\u00A0/ ");
+  // Durations render as the landing cards' pills: a chip is one atomic
+  // unit, so a narrow cell wraps a whole length to the next line and no
+  // separator can strand at either edge of a line — the failure mode of
+  // every slash-joined layout ("30 min /" | "/ 1 hour").
+  const durationChips = (mins) => {
+    const row = el("span");
+    row.className = "duration-chips";
+    for (const m of mins) {
+      const chip = el("span", fmtDuration(m));
+      chip.className = "meta-chip";
+      row.appendChild(chip);
+    }
+    return row;
+  };
 
   function statTile(label, valueContent, meta) {
     const tile = el("div");
@@ -421,11 +428,11 @@
       slug.className = "col-slug";
       slug.dataset.label = "Slug";
       row.appendChild(slug);
-      const duration = t.duration_mode === "fixed"
-        ? solidDuration(t.fixed_duration_min)
-        : durationList(t.allowed_durations || []);
-      const durationCell = el("td", duration);
+      const durationCell = el("td");
       durationCell.dataset.label = "Duration";
+      durationCell.appendChild(durationChips(t.duration_mode === "fixed"
+        ? [t.fixed_duration_min]
+        : t.allowed_durations || []));
       row.appendChild(durationCell);
       const vis = el("td");
       vis.dataset.label = "Visibility";
