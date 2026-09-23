@@ -394,7 +394,11 @@ textarea { width: 100%; resize: vertical; }
 .month-nav .btn { margin-left: auto; }
 
 /* calendar */
-.day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.375rem; }
+/* minmax(0, 1fr), not bare 1fr: a plain track's floor is the content's
+ * min-content, and once the chips pinned their own width that floor (7 ×
+ * 2.75rem + gaps) overflowed every panel sharing the booking grid at phone
+ * widths instead of just shrinking. */
+.day-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.375rem; }
 .day-grid .dow {
   display: flex; align-items: center; justify-content: center;
   color: var(--muted); font-size: var(--fs-caption); font-weight: 650;
