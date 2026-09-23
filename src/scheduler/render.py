@@ -465,9 +465,16 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
                   if meeting_is_live else "")
     # The closing note describes the page honestly per state: actions exist
     # only under a confirmed booking, so only that state may point at them.
-    status_note = ("Opening this page changes nothing. Canceling or rescheduling needs the explicit action below."
-                   if status == "confirmed" else
-                   "This booking is canceled. Its time was released — nothing here needs your attention.")
+    # With a cancellation in flight the page points at no action — the cancel
+    # card explains and offers nothing, and the reschedule form refuses until
+    # the cancellation lands, so the note names that instead of inviting a
+    # submit that cannot go through.
+    if status == "confirmed" and pending == "cancel":
+        status_note = "A cancellation is being processed — rescheduling waits until it lands."
+    elif status == "confirmed":
+        status_note = "Opening this page changes nothing. Canceling or rescheduling needs the explicit action below."
+    else:
+        status_note = "This booking is canceled. Its time was released — nothing here needs your attention."
     cfg = {"token": token, "apiBase": "/api/v1",
            "revision": booking.get("revision", 0), "duration": booking.get("duration_min", 30),
            "timezone": display_tz if tz_ok else "UTC"}

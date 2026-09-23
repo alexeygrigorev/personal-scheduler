@@ -125,6 +125,11 @@ def test_manage_page_a_pending_cancellation_is_not_rearmed():
     assert 'id="cancel-form"' not in body
     assert "A cancellation is being processed" in body
     assert 'id="reschedule-form"' in body
+    # The closing note may not point at actions either: the cancel card below
+    # offers none, and the reschedule form refuses until the cancellation
+    # lands — an action-inviting note would contradict the card next to it.
+    assert "needs the explicit action below" not in body
+    assert "rescheduling waits until it lands" in body
 
 
 def test_admin_rejects_an_invalid_question_configuration(table):
