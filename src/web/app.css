@@ -572,6 +572,11 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 .q-editor .q-choices textarea { font-family: inherit; }
 .q-editor .q-card-tail { display: flex; flex-wrap: wrap; gap: 0.625rem; align-items: center; justify-content: space-between; margin-top: 0.625rem; }
 .q-editor .q-card-moves { display: flex; gap: 0.375rem; }
+/* A failing question card speaks on itself: the verdict sits under the
+ * card's fields and the flagged input wears the danger border, so the
+ * positional server error never has to do this job. */
+.q-editor .q-error { display: block; margin-top: 0.5rem; color: var(--danger-strong); font-size: var(--fs-secondary); }
+.q-editor input[aria-invalid="true"], .q-editor textarea[aria-invalid="true"] { border-color: var(--danger); }
 .q-check { display: inline-flex; align-items: center; gap: 0.375rem; font-size: var(--fs-secondary); font-weight: 550; }
 .q-check input { width: 1.0625rem; height: 1.0625rem; accent-color: var(--accent); }
 .q-check input[type="number"] { width: 5.5rem; height: auto; padding: 0.45rem 0.625rem; }

@@ -389,6 +389,17 @@
   function questionCard(item, index, items, rerender) {
     const card = el("div");
     card.className = "q-card";
+    // Per-card verdict slot: the save pre-flight writes here so a bad
+    // config is named on the field it belongs to, not in a footer note.
+    const err = el("span");
+    err.className = "q-error";
+    err.id = `q-err-${item.id}`;
+    // Editing the flagged field withdraws the verdict, like the booking form.
+    const liveClear = (input) => input.addEventListener("input", () => {
+      if (!err.textContent) return;
+      err.textContent = "";
+      card.querySelectorAll('[aria-invalid="true"]').forEach((n) => n.removeAttribute("aria-invalid"));
+    });
     const head = el("div");
     head.className = "q-card-head";
     // Sighted hosts get the same "Question N" anchor the aria-labels speak,
@@ -401,7 +412,9 @@
     labelInput.value = item.label;
     labelInput.placeholder = "Question visitors see";
     labelInput.setAttribute("aria-label", `Question ${index + 1} label`);
+    labelInput.setAttribute("aria-describedby", err.id);
     labelInput.addEventListener("input", () => { item.label = labelInput.value; });
+    liveClear(labelInput);
     head.appendChild(labelInput);
     const typeSelect = el("select");
     typeSelect.setAttribute("aria-label", `Question ${index + 1} answer type`);
@@ -433,9 +446,11 @@
       choicesInput.rows = Math.max(3, item.choices.length + 1);
       choicesInput.value = item.choices.join("\n");
       choicesInput.setAttribute("aria-label", `Question ${index + 1} options`);
+      choicesInput.setAttribute("aria-describedby", err.id);
       choicesInput.addEventListener("input", () => {
         item.choices = choicesInput.value.split("\n");
       });
+      liveClear(choicesInput);
       choicesField.appendChild(choicesInput);
       const other = el("label");
       other.className = "q-check";
@@ -458,7 +473,9 @@
     limitInput.max = "5000";
     limitInput.value = String(item.max_length);
     limitInput.setAttribute("aria-label", `Question ${index + 1} maximum answer length`);
+    limitInput.setAttribute("aria-describedby", err.id);
     limitInput.addEventListener("input", () => { item.max_length = parseInt(limitInput.value, 10) || 2000; });
+    liveClear(limitInput);
     limitWrap.appendChild(limitInput);
     limitWrap.appendChild(document.createTextNode("Max characters"));
     tail.appendChild(limitWrap);
@@ -492,6 +509,7 @@
     moves.append(up, down, remove);
     tail.appendChild(moves);
     card.appendChild(tail);
+    card.appendChild(err);
     return card;
   }
 
@@ -546,6 +564,39 @@
     save.addEventListener("click", async () => {
       save.disabled = true;
       note.classList.remove("error", "visible");
+      // The server bounces a bad config with one positional message in the
+      // footer; the same rules run here so the failing card is named on the
+      // field itself and keyboard focus lands on the first offender. A card
+      // with no label and no options is untouched intent — still dropped
+      // below without ceremony.
+      let firstBad = null;
+      list.querySelectorAll(".q-card").forEach((card, i) => {
+        const item = items[i];
+        if (!item.label.trim() && !item.choices.some((c) => c.trim())) return;
+        const flag = (input, message) => {
+          card.querySelector(".q-error").textContent = message;
+          input.setAttribute("aria-invalid", "true");
+          firstBad = firstBad || input;
+        };
+        if (!item.label.trim()) {
+          return flag(card.querySelector(".q-card-head input"), "Give the question a label.");
+        }
+        if (item.type === "single_choice" && item.choices.filter((c) => c.trim()).length < 2) {
+          const choicesInput = card.querySelector(".q-choices textarea");
+          if (choicesInput) return flag(choicesInput, "Add at least two options — one per line.");
+        }
+        if (!(item.max_length >= 1 && item.max_length <= 5000)) {
+          return flag(card.querySelector(".q-card-tail input"), "Max characters must be between 1 and 5000.");
+        }
+      });
+      if (firstBad) {
+        firstBad.focus();
+        note.textContent = "Fix the highlighted question cards.";
+        note.setAttribute("role", "alert");
+        note.classList.add("error", "visible");
+        save.disabled = false;
+        return;
+      }
       const clean = items
         .map((q) => ({ ...q, label: q.label.trim(), choices: q.choices.map((c) => c.trim()).filter(Boolean) }))
         .filter((q) => q.label || q.choices.length);
