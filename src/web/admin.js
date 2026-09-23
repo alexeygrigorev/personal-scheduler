@@ -511,7 +511,13 @@
     limitInput.value = String(item.max_length);
     limitInput.setAttribute("aria-label", `Question ${index + 1} maximum answer length`);
     limitInput.setAttribute("aria-describedby", err.id);
-    limitInput.addEventListener("input", () => { item.max_length = parseInt(limitInput.value, 10) || 2000; });
+    limitInput.addEventListener("input", () => {
+      // Zero and negatives must reach the save pre-flight, which flags
+      // them on the field; only true garbage falls back to the default.
+      // `|| 2000` here silently saved a typed 0 as a 2000 nobody saw.
+      const n = parseInt(limitInput.value, 10);
+      item.max_length = Number.isNaN(n) ? 2000 : n;
+    });
     liveClear(limitInput);
     limitWrap.appendChild(limitInput);
     limitWrap.appendChild(document.createTextNode("Max characters"));
