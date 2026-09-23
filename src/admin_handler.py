@@ -238,10 +238,12 @@ def _admin_api(event, segments, method, email):
     if segments == ["dapier"] and method == "GET":
         connection = store.get_calendar_connection()
         ref = str(connection.get("dapier_connection_ref") or "")
-        # The console's Authorize button deep-links into Dapier's own page
-        # for this connection — that is where account verification and the
+        # The console's Authorize button opens Dapier's OAuth start for this
+        # connection — the same action its Connections table labels
+        # Connect/Reconnect. That flow is where account verification and the
         # agent grant live; this app never handles provider OAuth itself.
-        authorize_url = (f"{config.DAPIER_BASE_URL}/connections/{urllib.parse.quote(ref)}"
+        authorize_url = (f"{config.DAPIER_BASE_URL}"
+                         f"/api/admin/oauth/{urllib.parse.quote(ref)}/start"
                          if ref else "")
         return http.json_response(200, {
             "connection_ref": ref,

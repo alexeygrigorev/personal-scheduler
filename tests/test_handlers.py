@@ -285,7 +285,8 @@ def test_admin_dapier_handoff(live):
     assert res.statusCode == 200
     data = json.loads(res["body"])
     assert data["connection_ref"] == "calendar-alexey"
-    assert data["authorize_url"] == "https://dapier.dtcdev.click/connections/calendar-alexey"
+    assert data["authorize_url"] == ("https://dapier.dtcdev.click"
+                                     "/api/admin/oauth/calendar-alexey/start")
 
 
 def test_admin_console_edits_are_version_guarded(live):
