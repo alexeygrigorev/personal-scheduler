@@ -162,7 +162,9 @@ def landing_page(host_name, intro, types):
 
 def _status_box(status_id, initial_text, extra_cls=""):
     cls = f"status {extra_cls}" if extra_cls else "status"
-    return (f"<div class=\"{cls}\" id=\"{status_id}\" role=\"status\">"
+    # tabindex=-1 keeps it out of the tab order but lets a failure hand the
+    # keyboard straight to the verdict instead of dropping it on <body>.
+    return (f"<div class=\"{cls}\" id=\"{status_id}\" role=\"status\" tabindex=\"-1\">"
             f"{icon('info', 'ic s-info')}{icon('alert', 'ic s-error')}{icon('check', 'ic s-ok')}"
             f"<span class=\"status-text\">{_esc(initial_text)}</span></div>")
 

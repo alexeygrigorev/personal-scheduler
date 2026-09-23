@@ -121,10 +121,12 @@
     const cell = document.createElement("div");
     cell.className = "empty-cell";
     if (retry) {
-      // A failure with no action to press invites a manual reload; put the
-      // retry where the explanation is, matching the admin sections' panel.
+      // A failure with no action to press invites a manual reload, so the
+      // Retry sits where the reading is. The banner above already carries
+      // the explanation; the cell repeats it only when a caller wants a
+      // quieter wording here.
       cell.className = "empty-cell with-action";
-      cell.textContent = message || "Availability could not be loaded.";
+      if (message) cell.textContent = message;
       const retryBtn = document.createElement("button");
       retryBtn.type = "button";
       retryBtn.className = "btn secondary sm";
@@ -177,13 +179,15 @@
     try {
       const res = await fetch(`${api}/availability?${params}`);
       data = await readJson(res);
-      if (!res.ok) throw new Error((data.error && data.error.message) || `request failed (${res.status})`);
+      // A silent API body must not push a bare code into the sentence; the
+      // number stays, phrased as something a person can read aloud.
+      if (!res.ok) throw new Error((data.error && data.error.message) || `the server answered with an error (${res.status})`);
     } catch (err) {
       if (seq !== loadSeq) return; // a newer load owns the grid now
       setNavLoading(false);
       $("day-grid").removeAttribute("aria-busy");
       setStatus("error", `Could not load times — ${why(err)}.`);
-      renderEmptyMonth("Availability could not be loaded.", true);
+      renderEmptyMonth("", true); // the banner above already carries the explanation
       return;
     }
     if (seq !== loadSeq) return; // a newer load owns the grid now
@@ -568,6 +572,14 @@
     } catch (err) {
       restoreConfirmButton();
       setStatus("error", `Could not confirm the booking — ${why(err)}.`);
+      // Disabling the Confirm button threw focus to <body>, and the verdict
+      // renders at the top of a long form. Manage scrolls its status box to
+      // the reader on a failure; booking adds the keyboard anchor, so the
+      // next Tab starts at the verdict instead of the document top.
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const box = $("booking-status");
+      box.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      box.focus({ preventScroll: true });
     }
   }
 
