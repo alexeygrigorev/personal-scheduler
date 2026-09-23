@@ -148,6 +148,12 @@ def _admin_api(event, segments, method, email):
                 raise HttpError(422, "invalid_input", str(exc))
             return http.json_response(201, store.get_event_type(clone["id"]))
         body = dict(body, id=body.get("id") or security.new_id("et_"), version=1)
+        # A fresh type appends to the end of the console's ordering: without
+        # a position every create would sit at 0, leaving the table's order
+        # to the id tiebreak — effectively random as types pile up.
+        if "position" not in body:
+            body["position"] = 1 + max((int(t.get("position", 0))
+                                        for t in store.list_event_types()), default=-1)
         try:
             store.put_event_type(body)
         except ValueError as exc:

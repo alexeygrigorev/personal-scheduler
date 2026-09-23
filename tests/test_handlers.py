@@ -313,6 +313,21 @@ def test_duplicate_stays_one_click_away_even_twice(live):
     assert second["id"] != first["id"]
 
 
+def test_a_created_type_appends_to_the_order(live):
+    # Every create without an explicit position used to sit at 0, leaving
+    # the console's ordering to the id tiebreak — effectively random as
+    # types piled up. A fresh type now lands after everything present.
+    cookies = [admin_session("host@datatalks.club")]
+    created = json.loads(call(admin_handler.lambda_handler, "/admin/api/event-types",
+                              method="POST", cookies=cookies,
+                              body={"title": "Last in line", "slug": "last-in-line"})["body"])
+    types = json.loads(call(admin_handler.lambda_handler, "/admin/api/event-types",
+                            cookies=cookies)["body"])["event_types"]
+    others = [int(t.get("position", 0)) for t in types if t["id"] != created["id"]]
+    assert int(created["position"]) > max(others)
+    assert types[-1]["id"] == created["id"]
+
+
 def test_pending_operation_has_a_status_view(live):
     live["provider"].timeout_once.add("create:op-pending-view")
     import scheduler.security as security_mod
