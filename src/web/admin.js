@@ -221,6 +221,9 @@
         loadOverview();
       } catch (err) {
         btn.disabled = false;
+        // Disabling the focused button dropped the keyboard to the body;
+        // put it back where the verdict lands.
+        btn.focus();
         note.textContent = `Could not save that change — ${why(err)}.`;
         note.className = "saved-note error visible";
         note.setAttribute("role", "alert");
@@ -315,7 +318,7 @@
       // the actions, never inside the button label: buttons stay nowrap,
       // so a long message there would push the button past the card edge
       // on mobile.
-      let armTimer = 0;
+      let armTimer = 0, toggleNote = null, toggleNoteTimer = 0;
       const disarm = () => {
         clearTimeout(armTimer);
         delete toggle.dataset.armed;
@@ -343,11 +346,19 @@
           loadTypes();
         } catch (err) {
           toggle.disabled = false;
-          const note = el("span", `Could not save that change — ${why(err)}.`);
-          note.className = "saved-note error visible row-error";
-          note.setAttribute("role", "alert");
-          actions.appendChild(note);
-          setTimeout(() => note.remove(), 4000);
+          // Disabling the focused button dropped the keyboard to the body;
+          // the verdict's own button keeps a keyboard admin in the row.
+          // One note per row: a repeat failure rewrites, not stacks.
+          toggle.focus();
+          if (!toggleNote) {
+            toggleNote = el("span");
+            toggleNote.className = "saved-note error visible row-error";
+            toggleNote.setAttribute("role", "alert");
+            actions.appendChild(toggleNote);
+          }
+          toggleNote.textContent = `Could not save that change — ${why(err)}.`;
+          clearTimeout(toggleNoteTimer);
+          toggleNoteTimer = setTimeout(() => { toggleNote.remove(); toggleNote = null; }, 4000);
         }
       });
       toggle.addEventListener("keydown", (ev) => {
@@ -750,6 +761,20 @@
         cancel.textContent = "Cancel";
         cancel.removeAttribute("aria-label");
       };
+      // One verdict per row: a repeat failure rewrites the note instead of
+      // stacking a crowd of them beside the actions.
+      let rowNote = null, rowNoteTimer = 0;
+      const showRowNote = (message) => {
+        if (!rowNote) {
+          rowNote = el("span");
+          rowNote.className = "saved-note error visible row-error";
+          rowNote.setAttribute("role", "alert");
+          actions.appendChild(rowNote);
+        }
+        rowNote.textContent = message;
+        clearTimeout(rowNoteTimer);
+        rowNoteTimer = setTimeout(() => { rowNote.remove(); rowNote = null; }, 4000);
+      };
       cancel.addEventListener("click", async () => {
         if (cancel.dataset.armed !== "1") {
           cancel.dataset.armed = "1";
@@ -769,14 +794,14 @@
         } catch (err) {
           disarm();
           cancel.disabled = false;
+          // Disabling the focused button drops the keyboard to the body;
+          // putting it back on the verdict's own button keeps a keyboard
+          // admin in the row they acted on.
+          cancel.focus();
           // The verdict belongs to the row the admin acted on — beside the
           // actions, matching the types table — not at the section top,
           // a screen away from a tall table's failing row.
-          const note = el("span", `Could not cancel that booking — ${why(err)}.`);
-          note.className = "saved-note error visible row-error";
-          note.setAttribute("role", "alert");
-          actions.appendChild(note);
-          setTimeout(() => note.remove(), 4000);
+          showRowNote(`Could not cancel that booking — ${why(err)}.`);
         }
       });
       cancel.addEventListener("keydown", (ev) => {
