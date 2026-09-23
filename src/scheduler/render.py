@@ -182,7 +182,12 @@ def booking_page(item, host_name, viewer_tz="UTC"):
     else:
         durations = sorted(item.get("allowed_durations", []))
         default = durations[0] if durations else 30
-        duration_text = f"{duration_label(durations[0])} – {duration_label(durations[-1])}"
+        # The range travels as one unit — every join is no-break, so a phone
+        # line can't strand "– 1 hour" at a line's head nor split "30 min".
+        # The labels are short; the unit always fits once it gets its line.
+        duration_text = (
+            f"{duration_label(durations[0])} – {duration_label(durations[-1])}"
+        ).replace(" ", "\u00A0")
     options = []
     for minutes in durations:
         checked = " checked" if minutes == default else ""
