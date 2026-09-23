@@ -133,3 +133,23 @@ def test_picking_a_fresh_slot_retires_the_taken_verdict():
     assert 'includes("just taken")' in pick
     assert 'setStatus("", "Time picked — confirm your details below.")' in pick
     assert 'setStatus("error"' not in pick
+
+
+def test_taken_slot_verdict_promises_only_what_remains():
+    # A 409 reload that still has slots may say "pick a new time below";
+    # one that comes back empty must not — nothing is below, and an
+    # instruction nobody can follow is the loudest thing on the page. The
+    # empty branch names the exhausted month and the next-month arrow
+    # (still in the visible head) as the way out instead.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    taken = js.split('data.error.code === "slot_unavailable"', 1)[1].split("if (!res.ok)", 1)[0]
+    fresh_at = taken.find('querySelector("#time-list button")')
+    assert fresh_at != -1
+    assert 0 < taken.find('setStatus("error"', fresh_at), "the branch on fresh slots must precede both texts"
+    assert "no open times left in ${monthName}" in taken
+    assert "No open times left in ${monthName}" in taken
+    assert "try the next month" in taken
+    # with no slot to hand focus to, the verdict stays the keyboard anchor
+    assert "else verdict.focus({ preventScroll: true });" in taken
+
+

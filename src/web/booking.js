@@ -568,8 +568,16 @@
       if (res.status === 409 && data.error && data.error.code === "slot_unavailable") {
         restoreConfirmButton();
         await loadAvailability(true); // refreshed alternatives, form entries preserved
+        // The instruction has to match what the reload actually found: when
+        // the month came back empty, "pick a new time below" is a promise
+        // nothing below can keep — the next-month arrow in the head is the
+        // way out that still exists, so the words point there instead.
+        const fresh = document.querySelector("#time-list button");
+        const monthName = state.month.toLocaleDateString([], { month: "long", timeZone: "UTC" });
         // Set after the refresh so the reload's status text can't overwrite it.
-        setStatus("error", "That time was just taken. Your details are kept — pick a new time below.");
+        setStatus("error", fresh
+          ? "That time was just taken. Your details are kept — pick a new time below."
+          : `That time was just taken. Your details are kept — no open times left in ${monthName}; try the next month.`);
         // The scroll lands on the times list and always leaves the status
         // banner above the day grid off-screen; the verdict must also sit
         // where the visitor is now looking, right above the fresh slots.
@@ -586,13 +594,14 @@
         // moment the visitor most needs it. The head stays up; its hint
         // already says the day has no open times.
         timesHead.hidden = false;
-        verdict.textContent = "That time was just taken — your details are kept. Pick a new time below.";
+        verdict.textContent = fresh
+          ? "That time was just taken — your details are kept. Pick a new time below."
+          : `That time was just taken — your details are kept. No open times left in ${monthName} — try the next month.`;
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         timesHead.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
         // Focus stayed on Confirm, which the scroll just carried off-screen on
         // a phone; the first open slot is where picking continues. With no
         // fresh slot to take focus, the verdict is the thing to read next.
-        const fresh = document.querySelector("#time-list button");
         if (fresh) fresh.focus({ preventScroll: true });
         else verdict.focus({ preventScroll: true });
         return;
