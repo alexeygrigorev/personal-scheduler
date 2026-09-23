@@ -357,6 +357,14 @@
         // about and read as if the new slot were suspect too.
         const verdict = document.getElementById("times-verdict");
         if (verdict) verdict.remove();
+        // The banner above the grid carried the same alarm as an assertive
+        // alert; once its ask is fulfilled it must step down to a calm
+        // confirmation instead of shouting a stale error over the visitor's
+        // new choice. Other statuses (day counts, load failures) stay.
+        const statusText = document.querySelector("#booking-status .status-text");
+        if (statusText && statusText.textContent.includes("just taken")) {
+          setStatus("", "Time picked — confirm your details below.");
+        }
         renderTimes(slots, { restoreFocus: true });
         updateSummary();
         showDetails(true);

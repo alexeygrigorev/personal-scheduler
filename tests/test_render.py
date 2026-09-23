@@ -127,3 +127,9 @@ def test_picking_a_fresh_slot_retires_the_taken_verdict():
     pick = js.split("state.selectedEnd = slot.end;", 1)[1].split("});", 1)[0]
     assert 'getElementById("times-verdict")' in pick
     assert ".remove()" in pick
+    # The banner shouted the same alarm as an assertive alert; once its ask
+    # is fulfilled it must step down to a calm, non-alert confirmation —
+    # and only then: day counts and load failures are not ours to clobber.
+    assert 'includes("just taken")' in pick
+    assert 'setStatus("", "Time picked — confirm your details below.")' in pick
+    assert 'setStatus("error"' not in pick
