@@ -875,6 +875,13 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 }
 .details-panel .placeholder .info-meta { align-items: center; margin-top: 0.5rem; }
 
+/* The details panel's column is a hand-span of card interior: Confirm and
+ * Back at hug width wrap into a ragged left stack. Columned and stretched
+ * they read as the panel's two full-width moves — primary, then the escape
+ * hatch under it — instead of two half-width buttons that barely miss
+ * sharing a row. */
+.details-panel .form-actions { flex-direction: column; align-items: stretch; }
+
 .inline-link { font-weight: 600; }
 
 /* ---------- motion preferences ---------- */
