@@ -575,9 +575,12 @@
         const fresh = document.querySelector("#time-list button");
         const monthName = state.month.toLocaleDateString([], { month: "long", timeZone: "UTC" });
         // Set after the refresh so the reload's status text can't overwrite it.
+        // Both banners read as one sentence: on a tall screen the visitor
+        // sees them stacked, and two wordings of the same ask read like
+        // two different problems.
         setStatus("error", fresh
-          ? "That time was just taken. Your details are kept — pick a new time below."
-          : `That time was just taken. Your details are kept — no open times left in ${monthName}; try the next month.`);
+          ? "That time was just taken — your details are kept. Pick a new time below."
+          : `That time was just taken — your details are kept. No open times left in ${monthName} — try the next month.`);
         // The scroll lands on the times list and always leaves the status
         // banner above the day grid off-screen; the verdict must also sit
         // where the visitor is now looking, right above the fresh slots.
@@ -773,14 +776,11 @@
   });
 
   // Duration selector comes before date and time choices; changing it
-  // recomputes the times, so the picked start dies with its slot set — but
-  // the day itself is only re-validated by the reload (kept when the new
-  // duration still offers slots on it, else the first bookable day), so
-  // exploring a duration never throws the visitor back to the top of the
-  // month they were halfway down.
+  // recomputes days and starts and clears a now-invalid selection.
   document.querySelectorAll('input[name="duration"]').forEach((radio) => {
     radio.addEventListener("change", () => {
       state.duration = Number(radio.value);
+      state.selectedDay = "";
       state.selectedStart = "";
       showDetails(false);
       updateSummary();

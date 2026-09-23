@@ -146,10 +146,46 @@ def test_taken_slot_verdict_promises_only_what_remains():
     fresh_at = taken.find('querySelector("#time-list button")')
     assert fresh_at != -1
     assert 0 < taken.find('setStatus("error"', fresh_at), "the branch on fresh slots must precede both texts"
-    assert "no open times left in ${monthName}" in taken
+    assert taken.count("No open times left in ${monthName}") == 2
     assert "No open times left in ${monthName}" in taken
-    assert "try the next month" in taken
+    assert taken.count("try the next month") == 2
     # with no slot to hand focus to, the verdict stays the keyboard anchor
     assert "else verdict.focus({ preventScroll: true });" in taken
 
 
+
+
+def test_taken_banner_speaks_once_in_one_voice():
+    # On a tall screen the status banner and the times verdict stack in one
+    # view; two wordings of the same ask read like two different problems.
+    # Whatever the reload found — fresh slots or an exhausted month — every
+    # sentence the status banner can speak, the verdict must speak in
+    # exactly the same words.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    taken = js.split('data.error.code === "slot_unavailable"', 1)[1]
+    taken = taken.split("if (!res.ok)", 1)[0]
+    texts = []
+    for line in taken.splitlines():
+        if "That time was just taken" not in line:
+            continue
+        tail = line.split("That time was just taken", 1)[1]
+        quote = '"' if '"' in tail else "`"
+        texts.append(tail.split(quote, 1)[0])
+    assert len(texts) >= 2 and len(texts) % 2 == 0
+    # Banner and verdict alternate; each pair is one sentence in one voice.
+    assert sorted(texts[::2]) == sorted(texts[1::2])
+
+
+def test_autofilled_other_text_opens_the_reveal():
+    # Browsers autofill — and visitors paste — into the Other input without
+    # clicking its radio; the reveal must follow the group's state through
+    # the input event, and a filler that fires only change must not strand
+    # a checked Other with its answer invisible. Every driver goes through
+    # one sync, so the class can never disagree with the radio.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    input_listener = js.split('details-form").addEventListener("input"', 1)[1]
+    assert "syncOther(field)" in input_listener
+    assert 'if (radio) radio.checked = true;' in input_listener
+    change_listener = js.split('details-form").addEventListener("change"', 1)[1]
+    assert "data-other-input" in change_listener.split('input[type=radio]', 1)[0]
+    assert js.count('classList.toggle("other-open"') == 1
