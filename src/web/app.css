@@ -433,14 +433,15 @@ textarea { width: 100%; resize: vertical; }
 .times-head .hint { color: var(--muted); font-size: var(--fs-caption); }
 
 /* inline status: quiet while neutral, boxed once it has something to say */
-.status {
-  display: flex; align-items: flex-start; gap: 0.5rem;
+.status { display: flex; align-items: flex-start; gap: 0.5rem;
   border: 1px solid transparent; border-radius: var(--r-ctrl);
   background: transparent; color: var(--muted);
   padding: 0.125rem 0; margin: 0 0 0.875rem;
   font-size: var(--fs-secondary);
   min-height: 1.5rem;
 }
+/* Only ever focused programmatically (outcome scroll), never tabbed to. */
+.status:focus, .status:focus-visible { outline: none; }
 .status svg { flex: none; margin-top: 0.125rem; color: var(--faint); display: none; }
 .status:not(.error):not(.ok) .s-info { display: block; }
 .status.error, .status.ok { padding: 0.625rem 0.875rem; min-height: 2.75rem; }

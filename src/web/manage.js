@@ -12,7 +12,16 @@
   const statusEl = document.getElementById("manage-status");
   function setStatus(kind, text) {
     statusEl.className = "status" + (kind ? " " + kind : "");
+    // Failed actions announce assertively, like every other status box here.
+    statusEl.setAttribute("role", kind === "error" ? "alert" : "status");
     statusEl.querySelector(".status-text").textContent = text;
+  }
+  // The verdict for a submitted action renders at the top of the page while
+  // the buttons sit further down; on a short laptop window the two can be a
+  // screen apart, so an outcome scrolls to where the visitor is looking.
+  function revealStatus() {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    statusEl.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
   }
 
   // A pending action finishes in the background, so the promise "this page
@@ -86,6 +95,7 @@
         // what to read next.
         statusEl.setAttribute("tabindex", "-1");
         statusEl.focus({ preventScroll: true });
+        revealStatus();
         lockReschedule();
         waitForSettle();
         return "pending";
@@ -104,6 +114,7 @@
       setStatus("error", err.message === "Failed to fetch"
         ? "The server could not be reached. Check your connection and try again."
         : err.message);
+      revealStatus();
     }
   }
 
@@ -126,12 +137,23 @@
     cancelForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
       if (confirmRow.hidden) { arm(); return; }
+      // One POST per arm: while it flies, both confirm-row buttons lock, so
+      // a double-click cannot fire a second request and "keep it" cannot
+      // pretend to withdraw a cancel that is already underway.
+      const confirmBtn = confirmRow.querySelector("button.confirm");
+      const keepBtn = confirmRow.querySelector("button.keep");
+      confirmBtn.disabled = true;
+      keepBtn.disabled = true;
       postAction("cancel", {
         revision: Number(cfg.revision),
         reason: document.getElementById("cancel-reason").value,
         idempotency_key: crypto.randomUUID(),
       }).then((outcome) => {
-        if (outcome !== "pending") return;
+        if (outcome !== "pending") {
+          confirmBtn.disabled = false;
+          keepBtn.disabled = false;
+          return;
+        }
         // The armed row below a "do not retry" status invites the exact
         // second click the copy rules out; one disabled in-flight button
         // says the same thing the status line does.
@@ -242,6 +264,11 @@
         return;
       }
       const start = wallToIso(raw, cfg.timezone || "UTC") || raw;
+      // Locked during the flight like the cancel row; a pending outcome
+      // keeps it locked (lockReschedule owns that lock from here), an error
+      // hands control back.
+      const submitBtn = reschedForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
       postAction("reschedule", {
         revision: Number(cfg.revision),
         start,
@@ -251,6 +278,8 @@
         // The raw policy message says nothing actionable; "too soon" is what
         // it means for an invitee picking a new slot.
         policy_violation: "That time is too soon — the booking policy needs more notice. Pick a later start.",
+      }).then((outcome) => {
+        if (!outcome) submitBtn.disabled = false;
       });
     });
   }
