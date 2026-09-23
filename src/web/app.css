@@ -912,6 +912,11 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
     animation: none;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  /* The badge's pill color is the record's verdict (green live, red canceled,
+   * amber in flight) — the one signal paper must not drop, like the orb. */
+  .badge {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
 }
 
 /* ---------- forced colors ---------- */
