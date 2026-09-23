@@ -121,6 +121,9 @@
       block.setAttribute("aria-hidden", "true");
       list.appendChild(block);
     }
+    // Same reasoning as renderEmptyMonth: only renderDays names the month,
+    // and the arrows should not loom over a blank label while loading.
+    renderMonthLabel();
   }
 
   function renderMonthLabel() {
@@ -591,12 +594,13 @@
         const fresh = document.querySelector("#time-list button");
         const monthName = state.month.toLocaleDateString([], { month: "long", timeZone: "UTC" });
         // Set after the refresh so the reload's status text can't overwrite it.
-        // Both banners read as one sentence: on a tall screen the visitor
-        // sees them stacked, and two wordings of the same ask read like
-        // two different problems.
-        setStatus("error", fresh
-          ? "That time was just taken — your details are kept. Pick a new time below."
-          : `That time was just taken — your details are kept. No open times left in ${monthName} — try the next month.`);
+        // Both banners read as one sentence — on a tall screen the visitor
+        // sees them stacked, and two wordings of the same ask read like two
+        // different problems — so the sentence is built once and spoken
+        // twice, matching what the reload actually found.
+        const ask = fresh ? "Pick a new time below."
+          : `No open times left in ${monthName} — try the next month.`;
+        setStatus("error", `That time was just taken — your details are kept. ${ask}`);
         // The scroll lands on the times list and always leaves the status
         // banner above the day grid off-screen; the verdict must also sit
         // where the visitor is now looking, right above the fresh slots.
@@ -613,9 +617,7 @@
         // moment the visitor most needs it. The head stays up; its hint
         // already says the day has no open times.
         timesHead.hidden = false;
-        verdict.textContent = fresh
-          ? "That time was just taken — your details are kept. Pick a new time below."
-          : `That time was just taken — your details are kept. No open times left in ${monthName} — try the next month.`;
+        verdict.textContent = `That time was just taken — your details are kept. ${ask}`;
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         timesHead.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
         // Focus stayed on Confirm, which the scroll just carried off-screen on
