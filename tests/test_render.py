@@ -116,11 +116,12 @@ def test_dark_palette_stays_off_paper():
         assert "screen" in query, f"dark palette not screen-scoped: {query.strip()!r}"
 
 
-def _booking_page(questions=()):
+def _booking_page(questions=(), require_agenda=False):
     et = {"id": "et-chat", "slug": "career-chat", "title": "Career chat",
           "description": "Bring your questions.", "duration_mode": "selectable",
           "allowed_durations": [30, 45, 60], "fixed_duration_min": 0,
-          "questions": list(questions), "visibility": "listed", "version": 1}
+          "questions": list(questions), "visibility": "listed", "version": 1,
+          "require_agenda": require_agenda}
     return render.booking_page(et, "Alexey Grigorev", "Europe/Berlin")["body"]
 
 
@@ -164,6 +165,24 @@ def test_details_fields_carry_the_server_caps():
     assert '<textarea id="f-notes" rows="3" maxlength="2000" aria-describedby="err-notes">' in html
     assert ('<span class="char-count" aria-live="polite"></span>'
             '<span class="error" id="err-notes"') in html
+
+
+def test_agenda_gated_type_marks_the_notes_field_required():
+    # A type whose server gate rejects an empty agenda (validate_invitee's
+    # "agenda" verdict) can't wait for the 422 to say so: the field wears
+    # the star and the required attribute, so client validation stops the
+    # submit exactly where the questions' own required answers stop.
+    html = _booking_page(require_agenda=True)
+    label = html.split('<label for="f-notes">')[1].split("</label>")[0]
+    assert ('<span class="req" aria-hidden="true"> *</span>' in label
+            or '<span class="req" aria-hidden="true">&nbsp;*</span>' in label)
+    assert 'id="f-notes" rows="3" maxlength="2000" required aria-describedby="err-notes">' in html
+
+
+def test_agenda_stays_optional_where_the_type_does_not_gate():
+    html = _booking_page()
+    assert '<label for="f-notes">Purpose / agenda</label>' in html
+    assert 'id="f-notes" rows="3" maxlength="2000" aria-describedby="err-notes">' in html
 
 
 def test_picking_a_fresh_slot_retires_the_taken_verdict():

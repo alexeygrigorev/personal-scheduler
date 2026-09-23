@@ -288,6 +288,14 @@ def booking_page(item, host_name, viewer_tz="UTC"):
     else:
         duration_meta = (f"<div class=\"row\">{icon('clock', 'ic')}"
                          f"<span>Duration: {_esc(duration_text)}</span></div>")
+    # A type that gates on an agenda (validate_invitee rejects an empty one
+    # server-side) must say so before the submit, not after its 422: the
+    # field wears the questions' "not optional" grammar — star on the label,
+    # required on the control so client validation speaks first.
+    agenda_required = bool(item.get("require_agenda"))
+    agenda_mark = ('<span class="req" aria-hidden="true">&nbsp;*</span>'
+                   if agenda_required else "")
+    agenda_req = " required" if agenda_required else ""
     body = f"""<div id="booking-root" data-config='{json.dumps(cfg)}'>
 <div class="page-intro"><h1>{_esc(item['title'])}</h1>
 <p class="sub">Hosted by {_esc(host_name)} · {_esc(duration_text)}</p></div>
@@ -343,8 +351,8 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 <input id="f-name" autocomplete="name" maxlength="200" required aria-describedby="err-name"><span class="error" id="err-name" role="alert"></span></div>
 <div class="field"><label for="f-email">Email<span class="req" aria-hidden="true">&nbsp;*</span></label>
 <input id="f-email" type="email" autocomplete="email" maxlength="320" required aria-describedby="err-email"><span class="error" id="err-email" role="alert"></span></div>
-<div class="field"><label for="f-notes">Purpose / agenda</label>
-<textarea id="f-notes" rows="3" maxlength="2000" aria-describedby="err-notes"></textarea><span class="char-count" aria-live="polite"></span><span class="error" id="err-notes" role="alert"></span></div>
+<div class="field"><label for="f-notes">Purpose / agenda{agenda_mark}</label>
+<textarea id="f-notes" rows="3" maxlength="2000"{agenda_req} aria-describedby="err-notes"></textarea><span class="char-count" aria-live="polite"></span><span class="error" id="err-notes" role="alert"></span></div>
 {''.join(questions)}
 <p class="form-note">Availability is confirmed on submission — a selected slot is not held while you type.</p>
 <div class="form-actions">
