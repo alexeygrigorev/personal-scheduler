@@ -707,7 +707,11 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
    [hidden] guards matter because the display rules below would otherwise
    out-rank the UA's [hidden] { display:none } and keep swapped-out controls
    on screen. */
-.q-editor .dur-row { display: flex; align-items: center; min-height: 2.75rem; margin-bottom: 0.5rem; }
+/* The row may wrap on a phone, but only between the words and the
+   measure: .dur-fixed travels as one unit, so the break never orphans the
+   dash or strands "minutes" under the input. */
+.q-editor .dur-row { display: flex; flex-wrap: wrap; align-items: center; min-height: 2.75rem; margin-bottom: 0.5rem; }
+.q-editor .dur-fixed { display: inline-flex; align-items: center; gap: 0.375rem; white-space: nowrap; }
 .q-editor .dur-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.125rem; margin: 0.25rem 0 0 1.5rem; }
 .q-editor .dur-row[hidden], .q-editor .dur-opts[hidden] { display: none; }
 /* The panel carries no id, so the shared [id] scroll-margin never reaches
@@ -890,6 +894,10 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
     flex: 1; min-width: 0;
     display: flex; flex-direction: column; align-items: flex-end; text-align: right;
   }
+  /* The open row editor lives in a label-less td; as an ordinary flex item
+   * it shrink-wraps to its content and hangs ragged inside the row, short
+   * of the card edges the rows above and below reach. */
+  table.admin td .q-editor { flex: 1 1 100%; }
   table.admin .cell-break { overflow-wrap: anywhere; }
   table.admin td[data-label]::before {
     content: attr(data-label);
@@ -923,6 +931,14 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 /* A head carrying a note beside its action groups the pair so both hug the
    right edge — a bare third child would read as space-between's far end. */
 .panel-head-end { display: flex; align-items: center; gap: 0.625rem; }
+/* An empty verdict must not hold the action off the edge: its own margin
+ * plus the end group's gap would sit the button ~22px short of the card
+ * edge the sibling panels reach. */
+.panel-head .saved-note:empty { display: none; }
+/* An empty verdict must not hold the action off the edge: its own margin
+ * plus the end group's gap would sit the button ~22px short of the card
+ * edge the sibling panels reach. */
+.panel-head .saved-note:empty { display: none; }
 .next-bookings h2 { font-size: 1.0625rem; margin: 0 0 0.375rem; }
 .next-booking-row {
   display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
