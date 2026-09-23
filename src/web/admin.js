@@ -118,11 +118,14 @@
     loaders[section]().catch((err) => {
       box.innerHTML = "";
       const panel = el("div");
-      panel.className = "empty-state";
+      // A failed fetch is an error, not an empty shelf: the .error modifier
+      // swaps the dashed "nothing here" frame for a solid, full-width card
+      // with recovery as the one visible action.
+      panel.className = "empty-state error";
       panel.setAttribute("role", "alert");
       panel.appendChild(el("p", `Could not load this section — ${why(err)}.`));
       const retry = el("button", "Retry");
-      retry.className = "btn secondary sm";
+      retry.className = "btn sm";
       retry.addEventListener("click", () => show(section));
       panel.appendChild(retry);
       box.appendChild(panel);
