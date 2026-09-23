@@ -163,3 +163,148 @@ def test_the_summary_flags_a_range_that_crosses_midnight():
     assert 'toLocaleDateString("en-CA", { timeZone: state.timezone })' in summary
     assert '" (+1 day)" : ""' in summary
     assert "`${range} ·`" in summary
+
+
+
+def test_the_picker_grows_a_search_that_reaches_every_zone():
+    # Ten host picks cannot cover a visitor booking from Halifax or
+    # Hyderabad. With scripting on, the select is upgraded in place: a
+    # search field filters the browser's whole zone database, while the
+    # select itself stays the one value store — hidden, still receiving
+    # the change event the cookie, the note, and the reload listen on.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    combo = js.split("function upgradeTimezonePicker(select) {", 1)[1].split(
+        "\n  }\n", 1)[0]
+    assert 'setAttribute("role", "combobox")' in combo
+    assert 'setAttribute("aria-expanded", "false")' in combo
+    assert 'aria-controls", "tz-listbox"' in combo
+    assert 'aria-activedescendant' in combo
+    assert 'Intl.supportedValuesOf("timeZone")' in combo
+    assert "if (!q) return curated.slice();" in combo
+    # The store contract: real option, selected value, change event.
+    assert "opt.value = zone;" in combo
+    assert "select.value = zone;" in combo
+    assert 'select.dispatchEvent(new Event("change", { bubbles: true }));' in combo
+    assert "select.hidden = true;" in combo
+
+
+def test_the_timezone_search_answers_the_keyboard():
+    # A picker a keyboard cannot drive is a picker half the room cannot
+    # use: arrows walk and wrap, Home/End jump, Enter commits the active
+    # row, Escape closes and restores the field's value, and focus opens
+    # on the zone the visitor already books in.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    combo = js.split("function upgradeTimezonePicker(select) {", 1)[1].split(
+        "\n  }\n", 1)[0]
+    for key in ("ArrowDown", "ArrowUp", "Home", "End", "Enter", "Escape"):
+        assert f'ev.key === "{key}"' in combo
+    assert "((i % shown.length) + shown.length) % shown.length" in combo
+    assert "input.value = displayValue(state.timezone);" in combo
+    # The resting label is not a query: focus starts the lookup fresh,
+    # and only leaving without a pick restores the label.
+    assert 'input.value = "";' in combo
+
+
+def test_the_timezone_menu_stays_a_menu_at_full_depth():
+    # Four hundred zones render as wall; sixty render as a menu. The cap
+    # bounds only the paint — the tail row names what search still
+    # reaches, and a query that matches nothing says so in its own words.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    combo = js.split("function upgradeTimezonePicker(select) {", 1)[1].split(
+        "\n  }\n", 1)[0]
+    assert "const MAX_ROWS = 60;" in combo
+    assert "more — keep typing to narrow" in combo
+    assert "No timezone matches" in combo
+
+
+def test_the_timezone_popover_wears_the_shared_tokens():
+    # The popover is new surface, not a new dialect: surface, line, and
+    # shadow come from the tokens (so dark mode is inherited, not
+    # re-painted), rows keep the 2.75rem control height, and the field
+    # clears the caret it now carries.
+    css = (render.WEB_DIR / "app.css").read_text()
+    block = css.split(".tz-list {", 1)[1].split("}", 1)[0]
+    assert "var(--surface)" in block
+    assert "var(--shadow-pop)" in block
+    assert "var(--r-ctrl)" in block
+    assert "var(--line-strong)" in block
+    assert ".tz-row {" in css
+    row = css.split(".tz-row {", 1)[1].split("}", 1)[0]
+    assert "min-height: 2.75rem" in row
+    assert "padding-right: 2.5rem" in css
+    # a typed field never sits below the 16px iOS-zoom floor
+    assert "font-size: var(--fs-body)" in css
+    assert ".tz-row {" in css and "font-size: var(--fs-secondary)" in css
+    assert '.tz-input[aria-expanded="true"] + .tz-caret' in css
+
+
+def test_the_picker_grows_a_search_that_reaches_every_zone():
+    # Ten host picks cannot cover a visitor booking from Halifax or
+    # Hyderabad. With scripting on, the select is upgraded in place: a
+    # search field filters the browser's whole zone database, while the
+    # select itself stays the one value store — hidden, still receiving
+    # the change event the cookie, the note, and the reload listen on.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    combo = js.split("function upgradeTimezonePicker(select) {", 1)[1].split(
+        "\n  }\n", 1)[0]
+    assert 'setAttribute("role", "combobox")' in combo
+    assert 'setAttribute("aria-expanded", "false")' in combo
+    assert 'aria-controls", "tz-listbox"' in combo
+    assert 'aria-activedescendant' in combo
+    assert 'Intl.supportedValuesOf("timeZone")' in combo
+    assert "if (!q) return curated.slice();" in combo
+    # The store contract: real option, selected value, change event.
+    assert "opt.value = zone;" in combo
+    assert "select.value = zone;" in combo
+    assert 'select.dispatchEvent(new Event("change", { bubbles: true }));' in combo
+    assert "select.hidden = true;" in combo
+
+
+def test_the_timezone_search_answers_the_keyboard():
+    # A picker a keyboard cannot drive is a picker half the room cannot
+    # use: arrows walk and wrap, Home/End jump, Enter commits the active
+    # row, Escape closes and restores the field's value, and focus opens
+    # on the zone the visitor already books in.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    combo = js.split("function upgradeTimezonePicker(select) {", 1)[1].split(
+        "\n  }\n", 1)[0]
+    for key in ("ArrowDown", "ArrowUp", "Home", "End", "Enter", "Escape"):
+        assert f'ev.key === "{key}"' in combo
+    assert "((i % shown.length) + shown.length) % shown.length" in combo
+    assert "input.value = displayValue(state.timezone);" in combo
+    # The resting label is not a query: focus starts the lookup fresh,
+    # and only leaving without a pick restores the label.
+    assert 'input.value = "";' in combo
+
+
+def test_the_timezone_menu_stays_a_menu_at_full_depth():
+    # Four hundred zones render as wall; sixty render as a menu. The cap
+    # bounds only the paint — the tail row names what search still
+    # reaches, and a query that matches nothing says so in its own words.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    combo = js.split("function upgradeTimezonePicker(select) {", 1)[1].split(
+        "\n  }\n", 1)[0]
+    assert "const MAX_ROWS = 60;" in combo
+    assert "more — keep typing to narrow" in combo
+    assert "No timezone matches" in combo
+
+
+def test_the_timezone_popover_wears_the_shared_tokens():
+    # The popover is new surface, not a new dialect: surface, line, and
+    # shadow come from the tokens (so dark mode is inherited, not
+    # re-painted), rows keep the 2.75rem control height, and the field
+    # clears the caret it now carries.
+    css = (render.WEB_DIR / "app.css").read_text()
+    block = css.split(".tz-list {", 1)[1].split("}", 1)[0]
+    assert "var(--surface)" in block
+    assert "var(--shadow-pop)" in block
+    assert "var(--r-ctrl)" in block
+    assert "var(--line-strong)" in block
+    assert ".tz-row {" in css
+    row = css.split(".tz-row {", 1)[1].split("}", 1)[0]
+    assert "min-height: 2.75rem" in row
+    assert "padding-right: 2.5rem" in css
+    # a typed field never sits below the 16px iOS-zoom floor
+    assert "font-size: var(--fs-body)" in css
+    assert ".tz-row {" in css and "font-size: var(--fs-secondary)" in css
+    assert '.tz-input[aria-expanded="true"] + .tz-caret' in css

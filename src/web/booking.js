@@ -1063,6 +1063,282 @@
     syncOther(field);
   });
 
+  // The picker arrives as a plain <select> — the no-JS answer and the one
+  // store of the chosen value. Ten host picks cannot cover a visitor
+  // booking from Halifax or Hyderabad, so with scripting on the select is
+  // upgraded in place: a search field filters the browser's whole zone
+  // database while the hidden select still receives every change event,
+  // leaving the cookie, the note, and the availability reload untouched.
+  function upgradeTimezonePicker(select) {
+    if (select.hidden) return; // the upgrade already ran
+    const label = select.closest("label");
+    const combo = document.createElement("span");
+    combo.className = "tz-combo";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.id = "tz-input";
+    input.className = "tz-input";
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-controls", "tz-listbox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-describedby", "tz-note");
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = "Search timezones…";
+    const caret = document.createElement("span");
+    caret.className = "tz-caret";
+    caret.setAttribute("aria-hidden", "true");
+    caret.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+      + 'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+      + 'stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    const list = document.createElement("ul");
+    list.id = "tz-listbox";
+    list.className = "tz-list";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", "Timezones");
+    list.hidden = true;
+    combo.append(input, caret, list);
+    select.after(combo);
+    select.hidden = true;
+    if (label) label.htmlFor = input.id;
+
+    const curated = [...select.options].map((o) => o.value);
+    let zones = curated;
+    try {
+      // The browser's database is the authority on what exists here; the
+      // host's picks with the visitor's own zone lead the empty view and
+      // search reaches everything behind them.
+      zones = curated.concat(Intl.supportedValuesOf("timeZone")
+        .filter((z) => !curated.includes(z)));
+    } catch (err) { /* older engine: the curated list still searches */ }
+
+    const offCache = new Map();
+    function zoneOffset(zone) {
+      let off = offCache.get(zone);
+      if (off !== undefined) return off;
+      try {
+        const name = new Intl.DateTimeFormat("en", {
+          timeZone: zone, timeZoneName: "shortOffset",
+        }).formatToParts().find((p) => p.type === "timeZoneName").value;
+        // One dialect with the picker labels: (UTC+05:30), never GMT+5:30.
+        const m = name.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+        off = m ? `UTC${m[1]}${m[2].padStart(2, "0")}:${m[3] ?? "00"}` : "UTC+00:00";
+      } catch (err) { off = ""; }
+      offCache.set(zone, off);
+      return off;
+    }
+    function offsetMinutes(off) {
+      const m = off.match(/^UTC([+-])(\d{2}):(\d{2})$/);
+      return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
+    }
+    function displayValue(zone) {
+      const off = zoneOffset(zone);
+      return off ? `${zone} (${off})` : zone;
+    }
+
+    // Four hundred zones render as wall; sixty render as a menu. The cap
+    // only bounds the paint — search keeps reaching everything behind it,
+    // and the tail row says so instead of pretending the list ended.
+    const MAX_ROWS = 60;
+    const norm = (s) => s.toLowerCase().replace(/_/g, " ");
+    let shown = [];
+    let activeIndex = -1;
+
+    // A browser's zone database can still carry pre-1994 names — this is
+    // how Asia/Calcutta lists without Asia/Kolkata — so a visitor typing
+    // the modern city would be told nothing matches. Alias tokens ride in
+    // the search text only; the value stays the name the browser vouches
+    // for, which the server's zoneinfo resolves the same way.
+    const ZONE_ALIASES = {
+      "Asia/Calcutta": "kolkata",
+      "Asia/Bombay": "mumbai",
+      "Asia/Madras": "chennai",
+      "Asia/Dacca": "dhaka",
+      "Asia/Saigon": "ho chi minh",
+      "Asia/Rangoon": "yangon",
+      "Asia/Katmandu": "kathmandu",
+      "Asia/Chungking": "chongqing",
+      "Asia/Macao": "macau",
+      "Europe/Kiev": "kyiv",
+      "America/Godthab": "nuuk",
+    };
+
+    function search(query) {
+      const q = norm(query.trim());
+      if (!q) return curated.slice();
+      const hits = zones.filter((z) => {
+        const off = zoneOffset(z);
+        const hay = norm(`${z} ${ZONE_ALIASES[z] || ""} ${off} ${(off || "").slice(3)}`);
+        return hay.includes(q);
+      });
+      // Near zones surface first: current-offset order, name as tiebreak.
+      return hits.sort((a, b) =>
+        offsetMinutes(zoneOffset(a)) - offsetMinutes(zoneOffset(b))
+        || (a < b ? -1 : a > b ? 1 : 0));
+    }
+
+    function renderList() {
+      const rows = search(input.value);
+      shown = rows.slice(0, MAX_ROWS);
+      list.textContent = "";
+      shown.forEach((zone, i) => {
+        const li = document.createElement("li");
+        li.id = `tz-opt-${i}`;
+        li.setAttribute("role", "option");
+        li.dataset.zone = zone;
+        li.className = "tz-row";
+        const name = document.createElement("span");
+        name.className = "tz-zone";
+        name.textContent = zone;
+        const off = document.createElement("span");
+        off.className = "tz-off";
+        off.textContent = zoneOffset(zone);
+        li.append(name, off);
+        if (zone === select.value) li.setAttribute("aria-selected", "true");
+        list.append(li);
+      });
+      if (rows.length > MAX_ROWS) {
+        const more = document.createElement("li");
+        more.className = "tz-more";
+        more.setAttribute("role", "presentation");
+        more.textContent = `${rows.length - MAX_ROWS} more — keep typing to narrow`;
+        list.append(more);
+      }
+      if (!rows.length) {
+        const none = document.createElement("li");
+        none.className = "tz-empty";
+        none.setAttribute("role", "presentation");
+        none.textContent = `No timezone matches “${input.value.trim()}”`;
+        list.append(none);
+      }
+    }
+
+    function setActive(i) {
+      const row = list.querySelector(".tz-row.is-active");
+      if (row) row.classList.remove("is-active");
+      if (!shown.length) {
+        activeIndex = -1;
+        input.removeAttribute("aria-activedescendant");
+        return;
+      }
+      activeIndex = ((i % shown.length) + shown.length) % shown.length;
+      const el = document.getElementById(`tz-opt-${activeIndex}`);
+      if (!el) return;
+      el.classList.add("is-active");
+      input.setAttribute("aria-activedescendant", el.id);
+      el.scrollIntoView({ block: "nearest" });
+    }
+
+    function expand() {
+      renderList();
+      list.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    }
+    function collapse() {
+      list.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      activeIndex = -1;
+      input.value = displayValue(state.timezone);
+      resting = true;
+    }
+
+    function choose(zone) {
+      let opt = [...select.options].find((o) => o.value === zone);
+      if (!opt) {
+        // The select stays the one value store, so a zone the server never
+        // listed joins it before the change event — every listener reading
+        // the select keeps seeing a real, selected option.
+        opt = document.createElement("option");
+        opt.value = zone;
+        opt.textContent = displayValue(zone);
+        select.append(opt);
+      }
+      select.value = zone;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      collapse();
+    }
+
+    input.value = displayValue(state.timezone);
+    // True while the field holds the resting label rather than a query —
+    // the state Escape and clicking away leave behind. The next character
+    // the visitor types starts a fresh search instead of appending to the
+    // label, which could never match anything.
+    let resting = false;
+    // The field's resting text is the display label, and a label is not a
+    // query — searching it would answer "no matches". So opening starts a
+    // fresh lookup over the full list; leaving without a pick restores the
+    // label in collapse().
+    function freshLookup() {
+      input.value = "";
+      resting = false;
+      expand();
+      const at = shown.indexOf(state.timezone);
+      setActive(at >= 0 ? at : 0);
+    }
+    input.addEventListener("focus", freshLookup);
+    // Escape and a mouse pick leave the field focused with the list shut,
+    // and a second focus() never fires — so a click must reopen it.
+    input.addEventListener("click", () => {
+      if (list.hidden) freshLookup();
+    });
+    input.addEventListener("input", () => {
+      if (resting) {
+        resting = false;
+        const label = displayValue(state.timezone);
+        if (input.value.startsWith(label)) input.value = input.value.slice(label.length);
+      }
+      expand();
+      setActive(0);
+    });
+    input.addEventListener("keydown", (ev) => {
+      if (resting && ev.key.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        input.value = "";
+        resting = false;
+      }
+      const open = !list.hidden;
+      if (ev.key === "ArrowDown") {
+        ev.preventDefault();
+        if (!open) {
+          expand();
+          const at = shown.indexOf(state.timezone);
+          setActive(at >= 0 ? at : 0);
+        } else setActive(activeIndex + 1);
+      } else if (ev.key === "ArrowUp") {
+        ev.preventDefault();
+        if (!open) {
+          expand();
+          const at = shown.indexOf(state.timezone);
+          setActive(at >= 0 ? at : shown.length - 1);
+        } else setActive(activeIndex - 1);
+      } else if (ev.key === "Home" && open) {
+        ev.preventDefault();
+        setActive(0);
+      } else if (ev.key === "End" && open) {
+        ev.preventDefault();
+        setActive(shown.length - 1);
+      } else if (ev.key === "Enter") {
+        if (open && activeIndex >= 0 && shown[activeIndex]) {
+          ev.preventDefault();
+          choose(shown[activeIndex]);
+        }
+      } else if (ev.key === "Escape" && open) {
+        ev.preventDefault();
+        collapse();
+      }
+    });
+    list.addEventListener("mousedown", (ev) => {
+      const row = ev.target.closest('[role="option"]');
+      if (!row) return;
+      ev.preventDefault(); // the pick never steals the field's focus
+      choose(row.dataset.zone);
+    });
+    input.addEventListener("blur", () => {
+      if (!list.hidden) collapse();
+    });
+  }
+
   const now = new Date();
   state.month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   rememberTimezone();
@@ -1105,6 +1381,7 @@
     for (const o of rest) tzSelect.appendChild(o);
   }
   tzSelect.value = state.timezone;
+  upgradeTimezonePicker(tzSelect);
   $("clock-toggle").textContent = state.hour12 ? "Use 24-hour clock" : "Use 12-hour clock";
   syncTzNote();
   updateSummary();
