@@ -109,6 +109,9 @@ def test_details_fields_carry_the_server_caps():
     html = _booking_page()
     assert 'id="f-name" autocomplete="name" maxlength="200" required' in html
     assert 'id="f-email" type="email" autocomplete="email" maxlength="320" required' in html
-    assert '<textarea id="f-notes" rows="3" maxlength="2000">' in html
+    # Every details field points at its own error slot, notes included —
+    # a verdict announced only by role=alert still needs the association
+    # for screen readers that list a field's description on focus.
+    assert '<textarea id="f-notes" rows="3" maxlength="2000" aria-describedby="err-notes">' in html
     assert ('<span class="char-count" aria-live="polite"></span>'
             '<span class="error" id="err-notes"') in html
