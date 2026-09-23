@@ -233,3 +233,34 @@ def test_pending_operation_has_a_status_view(live):
                 data["receipt_url"].replace("https://scheduler.test", ""))
     assert page.statusCode == 200
     assert "reconciled" in page["body"]
+
+
+def test_settings_save_refuses_a_malformed_email_or_url(live):
+    cookies = [admin_session("host@datatalks.club")]
+    bad = call(admin_handler.lambda_handler, "/admin/api/settings",
+               method="PUT", cookies=cookies,
+               body={"public_base_url": "scheduler.example",
+                     "host_notification_email": "not-an-email",
+                     "contact_fallback": "alexey@datatalks.club"})
+    assert bad.statusCode == 422
+    payload = json.loads(bad["body"])
+    assert payload["error"]["code"] == "invalid_input"
+    assert "public_base_url" in payload["error"]["message"]
+    assert "host_notification_email" in payload["error"]["message"]
+    stored = json.loads(call(admin_handler.lambda_handler, "/admin/api/settings",
+                             cookies=cookies)["body"])["host"]
+    assert stored.get("public_base_url", "") != "scheduler.example"
+
+
+def test_settings_save_accepts_valid_values_and_blank_stays_legal(live):
+    cookies = [admin_session("host@datatalks.club")]
+    ok = call(admin_handler.lambda_handler, "/admin/api/settings",
+              method="PUT", cookies=cookies,
+              body={"display_name": "Alexey",
+                    "public_base_url": "https://scheduler.example",
+                    "contact_fallback": "",
+                    "host_notification_email": "notices@datatalks.club"})
+    assert ok.statusCode == 200
+    host = json.loads(ok["body"])["host"]
+    assert host["public_base_url"] == "https://scheduler.example"
+    assert host["host_notification_email"] == "notices@datatalks.club"

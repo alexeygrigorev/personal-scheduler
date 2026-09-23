@@ -14,7 +14,7 @@ from scheduler import config, http, oidc, render, security, service, store, wiri
 from scheduler.calendar import AuthLost, CalendarError
 from scheduler.dapier import DapierError
 from scheduler.http import HttpError
-from scheduler.models import EventType, parse_iso
+from scheduler.models import EventType, parse_iso, validate_host
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -226,7 +226,11 @@ def _admin_api(event, segments, method, email):
         return http.json_response(200, {"host": store.get_host()})
     if segments == ["settings"] and method == "PUT":
         _require_same_origin(event)
-        store.update_host(http.body(event))
+        body = http.body(event)
+        errors = validate_host(body)
+        if errors:
+            raise HttpError(422, "invalid_input", "; ".join(errors))
+        store.update_host(body)
         store.audit("admin", "host.update", "host", "main", actor_ref=email, result="updated")
         return http.json_response(200, {"host": store.get_host()})
     if segments == ["health"] and method == "GET":

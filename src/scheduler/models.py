@@ -4,6 +4,7 @@ details (DynamoDB single-table layout) live in store.py."""
 from __future__ import annotations
 
 import json
+import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -241,6 +242,23 @@ def validate_questions(questions) -> list[str]:
             choices = [str(c).strip() for c in question.get("choices", []) if str(c).strip()]
             if len(choices) < 2:
                 errors.append(f"{where}: a single-choice question needs at least two options")
+    return errors
+
+
+def validate_host(fields) -> list[str]:
+    """Config-side gate for host settings: a malformed URL or email must fail
+    the admin save, not silently become the schedule's public face or the
+    reply-to address on every calendar email."""
+    errors: list[str] = []
+    base = str(fields.get("public_base_url") or "").strip()
+    if base:
+        parts = urllib.parse.urlsplit(base)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            errors.append("public_base_url: must be a full http(s):// web address")
+    for key in ("host_notification_email", "contact_fallback"):
+        value = str(fields.get(key) or "").strip()
+        if value and ("@" not in value or "." not in value or len(value) > 320):
+            errors.append(f"{key}: must be a valid email address")
     return errors
 
 
