@@ -34,3 +34,25 @@ token-factory machine-access path and calendar capability, bind connection
 canonical base URL and sender identity, and exercise the full flow against a
 test calendar first. Provider OAuth credentials are never stored here —
 Dapier owns them.
+
+The `dtc-30` type seeds the three invitee questions asked on the Calendly
+30-minute page this replaces (topic choice with "Other", a required
+discussion note, optional company); edit them per meeting type in the admin
+console under Event types → Questions.
+
+## Dapier machine enrollment (one-time, per deployment)
+
+Calendar access flows through Dapier's agent API (`POST /api/agent/token`),
+which requires a DTC ID token from an enrolled machine identity. To enroll:
+
+1. In Dapier, create the `calendar-alexey` connection (Google Calendar,
+   `calendar.freebusy` + `calendar.events.owned`), verify the provider
+   account, and grant the `personal-scheduler` agent `use` on it.
+2. Sign in once with the dedicated scheduler CLI client and store the
+   resulting credential in Secrets Manager as
+   `{ "client_id": "<cli-client-id>", "refresh_token": "..." }`.
+3. Deploy with `DapierMachineSecretArn` set to that secret's ARN. The stack
+   grants the functions read access to exactly that secret; with no ARN the
+   calendar port fails closed. The scheduler never stores provider tokens —
+   Dapier keeps every refresh token, and calendar access tokens live only
+   transiently in memory.

@@ -32,6 +32,14 @@ Parameters:
     Type: String
     Default: https://dapier.dtcdev.click
     Description: Dapier deployment this scheduler consumes calendar access from.
+  DapierMachineSecretArn:
+    Type: String
+    Default: ''
+    Description: >
+      Secrets Manager ARN holding this deployment's enrolled Dapier machine
+      credential (JSON {"client_id", "refresh_token"}). Provisioned once by
+      the operator via the dapier CLI; empty until enrollment is done, which
+      keeps the calendar port failing closed instead of guessing.
   GitHubRepo:
     Type: String
     Default: DataTalksClub/personal-scheduler
@@ -56,7 +64,12 @@ Globals:
         AUTH_CALLBACK_URL: !Sub https://${DomainName}/auth/callback
         EMAIL_SENDER: !Ref EmailSender
         DAPIER_BASE_URL: !Ref DapierBaseUrl
+        DAPIER_AGENT: personal-scheduler
+        DAPIER_MACHINE_SECRET_ARN: !Ref DapierMachineSecretArn
         WORK_QUEUE_URL: !Ref WorkQueue
+
+Conditions:
+  HasDapierMachineSecret: !Not [!Equals [!Ref DapierMachineSecretArn, '']]
 
 Resources:
   Api:
@@ -130,6 +143,12 @@ Resources:
             - Effect: Allow
               Action: [secretsmanager:GetSecretValue]
               Resource: !Ref SessionSecret
+            - !If
+              - HasDapierMachineSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierMachineSecretArn
+              - !Ref AWS::NoValue
       Events:
         Root:
           Type: HttpApi
@@ -160,6 +179,12 @@ Resources:
             - Effect: Allow
               Action: [secretsmanager:GetSecretValue]
               Resource: !Ref SessionSecret
+            - !If
+              - HasDapierMachineSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierMachineSecretArn
+              - !Ref AWS::NoValue
       Events:
         Admin:
           Type: HttpApi
@@ -188,6 +213,12 @@ Resources:
             - Effect: Allow
               Action: [secretsmanager:GetSecretValue]
               Resource: !Ref SessionSecret
+            - !If
+              - HasDapierMachineSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierMachineSecretArn
+              - !Ref AWS::NoValue
       Events:
         Queue:
           Type: SQS

@@ -1,8 +1,6 @@
 """Lambda wiring seam: production ports built from the environment, with a
 test override so handlers stay thin and hermetic under moto."""
 
-import os
-
 from . import config
 
 _test_wiring = None
@@ -23,15 +21,16 @@ def get():
     if _test_wiring is not None:
         return _test_wiring
     from .calendar import RestGoogleCalendarProvider
-    from .dapier import HttpDapierClient
+    from .dapier import DtcRefreshIdentity, HttpDapierClient
     from .emailer import SesEmailPort
     from . import store as store_mod
 
-    dapier = HttpDapierClient(
-        config.DAPIER_BASE_URL,
-        os.environ.get("DAPIER_WORKLOAD_IDENTITY", ""),
-        os.environ.get("DAPIER_TOKEN_PATH", ""),
-    )
+    identity = None
+    if config.DAPIER_MACHINE_SECRET_ARN:
+        identity = DtcRefreshIdentity(config.AUTH_BASE_URL,
+                                      config.DAPIER_MACHINE_SECRET_ARN)
+    dapier = HttpDapierClient(config.DAPIER_BASE_URL, config.DAPIER_AGENT,
+                              identity=identity)
 
     def supplier():
         connection = store_mod.get_calendar_connection()
