@@ -318,6 +318,19 @@
           state.selectedDay = key;
           state.selectedStart = "";
           showDetails(false);
+          // The taken-slot alarm speaks for one submission: its verdict sits
+          // above the times and its banner echoes the same ask. A day pick
+          // replaces the list both were written for, so — like a fresh slot
+          // pick — they retire instead of reading as if the new day were
+          // suspect too. Day counts and load failures are not ours to clobber.
+          const verdict = document.getElementById("times-verdict");
+          if (verdict) verdict.remove();
+          const statusText = document.querySelector("#booking-status .status-text");
+          if (statusText &&
+              (statusText.textContent.includes("just taken") ||
+               statusText.textContent.startsWith("Could not confirm"))) {
+            setStatus("", "Day picked — now choose a time.");
+          }
           renderDays(state.days);
           renderTimes(state.dayToSlots[key] || []);
           updateSummary();
