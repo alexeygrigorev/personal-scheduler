@@ -12,9 +12,12 @@
   // A raw browser error ("Failed to fetch") says nothing actionable; error
   // surfaces embed this fragment after their own context prefix.
   function why(err) {
-    return err.message === "Failed to fetch"
+    // Callers close the sentence with their own period; a message that
+    // already ends in one would print doubled.
+    const raw = err.message === "Failed to fetch"
       ? "the server could not be reached"
       : (err.message || "something went wrong");
+    return raw.replace(/[.!?]+$/, "");
   }
 
   // First visit: the server had no zone cookie yet and rendered its default,
@@ -58,11 +61,14 @@
   }
 
   // A gateway timeout or 5xx page arrives as HTML, not JSON; translate that
-  // instead of surfacing the browser's raw parse error.
+  // instead of surfacing the browser's raw parse error. A failed response
+  // with no readable body still names its status, matching the parseable
+  // path's "answered with an error (503)".
   async function readJson(res) {
     try {
       return await res.json();
     } catch (err) {
+      if (!res.ok) throw new Error(`the server answered with an error (${res.status})`);
       throw new Error("Something went wrong on our side. Please try again.");
     }
   }
@@ -167,6 +173,9 @@
     const seq = ++loadSeq;
     if (!keepForm) showDetails(false);
     state.selectedStart = "";
+    // keepForm (a taken-slot retry) leaves the form on screen; its summary
+    // card must stop advertising the slot that just failed.
+    updateSummary();
     renderSkeleton();
     setStatus("", "Loading available times…");
     setNavLoading(true);
