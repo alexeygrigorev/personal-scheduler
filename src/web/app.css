@@ -675,8 +675,11 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
  * positional server error never has to do this job. */
 .q-editor .q-error { display: block; margin-top: 0.5rem; color: var(--danger-strong); font-size: var(--fs-secondary); }
 .q-editor input[aria-invalid="true"], .q-editor textarea[aria-invalid="true"] { border-color: var(--danger); }
-.q-check { display: inline-flex; align-items: center; gap: 0.375rem; font-size: var(--fs-secondary); font-weight: 550; }
-.q-check input { width: 1.0625rem; height: 1.0625rem; accent-color: var(--accent-fill); }
+/* The 44px control floor lives on the label, not the glyph: the global
+ * input min-height otherwise stretches the square to 44px tall and the
+ * caption text baseline-aligns to its bottom edge — chips read stacked. */
+.q-check { display: inline-flex; align-items: center; gap: 0.375rem; min-height: 2.75rem; font-size: var(--fs-secondary); font-weight: 550; }
+.q-check input { width: 1.0625rem; height: 1.0625rem; min-height: 0; accent-color: var(--accent-fill); }
 /* Same token-drawn chrome as the booking radios: the native dark scheme's
    grey-disc unchecked state reads as pre-selected there and here. The
    number input beside them keeps its text-field styling untouched. */
@@ -698,15 +701,19 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
   border-color: var(--accent-fill);
   background: var(--accent-fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5 7 12l5.5-8' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/0.75rem no-repeat;
 }
-.q-check input[type="number"] { width: 5.5rem; height: auto; padding: 0.45rem 0.625rem; }
+.q-check input[type="number"] { width: 5.5rem; height: auto; min-height: 2.75rem; padding: 0.45rem 0.625rem; }
 /* Type details editor: the two length modes read as one grouped choice —
    radio rows stacked, the mode's own controls indented beneath it. The
    [hidden] guards matter because the display rules below would otherwise
    out-rank the UA's [hidden] { display:none } and keep swapped-out controls
    on screen. */
-.q-editor .dur-row { display: flex; margin-bottom: 0.5rem; }
-.q-editor .dur-opts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.125rem; margin: 0.25rem 0 0 1.5rem; }
+.q-editor .dur-row { display: flex; align-items: center; min-height: 2.75rem; margin-bottom: 0.5rem; }
+.q-editor .dur-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.125rem; margin: 0.25rem 0 0 1.5rem; }
 .q-editor .dur-row[hidden], .q-editor .dur-opts[hidden] { display: none; }
+/* The panel carries no id, so the shared [id] scroll-margin never reaches
+   it; without its own, tabbing or scrolling to the editor parks its
+   heading under the sticky head. */
+.q-editor { scroll-margin-top: 4.75rem; }
 /* Invisible vertical padding plus the shared 2.75rem floor grow the touch
  * target to the same 44px bar the rest of the UI meets, without shifting
  * the row's baseline; horizontal padding would spill past the viewport edge

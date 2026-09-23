@@ -124,6 +124,33 @@ def test_details_editor_flags_bad_fields_before_the_save_flies():
     assert "firstBad = null;" in preflight
 
 
+def test_details_editor_hides_the_whole_fixed_length_affordance():
+    # Selectable mode hides the wrap; a dash left outside it read as
+    # "Fixed length —" pointing at nothing. The dash, number, and unit
+    # travel together inside the hidden span.
+    js = _admin_js()
+    details = js.split("function openDetailsEditor", 1)[1]
+    row = details.split("const pickRow", 1)[0]
+    assert 'createTextNode("Fixed length")' in row
+    wrap = row.split("const fixedWrap", 1)[1]
+    assert 'createTextNode(" — ")' in wrap
+
+
+def test_duration_chips_keep_their_glyph_square_and_target_big():
+    # The global 44px input floor stretches the checkbox square; the label
+    # text then baseline-aligns to the glyph box's bottom edge and every
+    # chip reads stacked. The floor moves to the label, the glyph stays
+    # square, and the panel scrolls clear of the sticky head.
+    css = (render.WEB_DIR / "app.css").read_text()
+    q_check = css.split("\n.q-check {", 1)[1].split("}", 1)[0]
+    assert "min-height: 2.75rem" in q_check
+    glyph = css.split("\n.q-check input {", 1)[1].split("}", 1)[0]
+    assert "min-height: 0" in glyph
+    number = css.split('.q-check input[type="number"] {', 1)[1].split("}", 1)[0]
+    assert "min-height: 2.75rem" in number
+    assert ".q-editor { scroll-margin-top: 4.75rem; }" in css
+
+
 def test_details_editor_hands_the_keyboard_to_its_own_button():
     # Two expandable buttons share each row now. Each editor's post-save
     # handback aims at its own button by name, and the visibility toggle

@@ -648,10 +648,12 @@
     fixedRadio.value = "fixed";
     fixedRadio.checked = draft.mode === "fixed";
     fixedRow.appendChild(fixedRadio);
-    fixedRow.appendChild(document.createTextNode("Fixed length —"));
-    // The number and its unit travel together: hiding only the input
-    // stranded "minutes" beside the dash when invitee-picks was chosen.
+    fixedRow.appendChild(document.createTextNode("Fixed length"));
+    // The dash, the number, and its unit travel together: hiding only the
+    // input first stranded "minutes" beside the dash, then the dash beside
+    // nothing, when invitee-picks was chosen.
     const fixedWrap = el("span");
+    fixedWrap.appendChild(document.createTextNode(" — "));
     const fixedInput = el("input");
     fixedInput.type = "number";
     fixedInput.min = "1";
