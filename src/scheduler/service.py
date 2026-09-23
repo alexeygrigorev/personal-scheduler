@@ -739,6 +739,15 @@ def reschedule_booking(*, booking_id: str, actor: str, expected_revision: int,
     if booking.get("status") != "confirmed":
         raise BookingError("invalid_state", "Only confirmed bookings can be rescheduled.",
                            status=409)
+    if booking.get("pending_action") == "cancel":
+        # A cancel is reconciling in the background: accepting a reschedule
+        # now would race it, and the event may already be gone when the
+        # patch lands. Refuse until the outcome settles — the invitee's page
+        # reflects it (a reload shows canceled; a settled failure reopens
+        # this path).
+        raise BookingError("action_conflict",
+                           "A cancellation is being processed for this booking — wait for it to land before rescheduling.",
+                           status=409)
     event_type = _load_event_type(booking["event_type_id"])
     duration_min = int(new_duration_min or booking["duration_min"])
     if duration_min != booking["duration_min"]:

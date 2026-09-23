@@ -198,13 +198,16 @@ def _ics_for_booking(booking: dict) -> str:
 
     title = (booking.get("snapshot", {}) or {}).get("title", "Meeting")
     uid = booking.get("provider_uid") or f"{booking['id']}@scheduler"
+    # The file must agree with the booking: a canceled meeting served as
+    # STATUS:CONFIRMED would re-add a dead meeting to the invitee's calendar.
+    status = "CANCELLED" if booking.get("status") == "canceled" else "CONFIRMED"
     return ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//scheduler//booking//EN\r\n"
             "BEGIN:VEVENT\r\n"
             f"UID:{uid}\r\n"
             f"DTSTART:{stamp(booking['start_iso'])}\r\n"
             f"DTEND:{stamp(booking['end_iso'])}\r\n"
             f"SUMMARY:{title}\r\n"
-            "STATUS:CONFIRMED\r\n"
+            f"STATUS:{status}\r\n"
             "END:VEVENT\r\nEND:VCALENDAR\r\n")
 
 

@@ -10,7 +10,7 @@ import pytest
 import admin_handler
 import public_handler
 from scheduler import security, service, store, wiring
-from scheduler.calendar import InMemoryCalendarProvider
+from scheduler.calendar import InMemoryCalendarProvider, UnknownOutcome
 from scheduler.dapier import FakeDapierClient
 from scheduler.emailer import InMemoryEmailPort
 
@@ -159,6 +159,33 @@ def test_management_cancel_and_ics(live):
     ics = call(public_handler.lambda_handler, f"/api/v1/manage/{token}/ics")
     assert ics.statusCode == 200
     assert "BEGIN:VEVENT" in ics["body"] and token not in ics["body"]
+    # The booking is canceled: the file must agree, not re-add it as live.
+    assert "STATUS:CANCELLED" in ics["body"]
+
+
+def test_reschedule_is_refused_while_a_cancellation_is_pending(live):
+    """A cancel reconciling in the background must not race an accepted
+    reschedule; until the outcome settles, the invitee is refused."""
+    class UnknownDelete(InMemoryCalendarProvider):
+        def delete_event(self, calendar_id, event_id):
+            raise UnknownOutcome("delete outcome unknown")
+
+    wiring.set_test(FakeDapierClient(), UnknownDelete(), InMemoryEmailPort(), live["queue"])
+    res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
+        "type": "dtc", "duration": 30, "start": berlin(13, "09:00").isoformat(),
+        "answers": {"discuss": "Scheduler migration chat"},
+        "name": "Ada", "email": "ada@example.com", "idempotency_key": "pc-1"})
+    assert res.statusCode == 201, res["body"]
+    token = json.loads(res["body"])["manage_url"].split("/m/")[1]
+    canceled = call(public_handler.lambda_handler, f"/api/v1/manage/{token}/cancel",
+                    method="POST", body={"revision": 1, "idempotency_key": "pc-1-cancel"})
+    assert canceled.statusCode == 200
+    assert json.loads(canceled["body"])["status"] == "pending"
+    resched = call(public_handler.lambda_handler, f"/api/v1/manage/{token}/reschedule",
+                   method="POST", body={"revision": 1, "start": berlin(12, "09:00").isoformat(),
+                                        "duration": 30, "idempotency_key": "pc-1-resched"})
+    assert resched.statusCode == 409
+    assert "action_conflict" in resched["body"]
 
 
 def test_management_status_probe_is_read_only_and_minimal(live):

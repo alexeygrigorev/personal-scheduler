@@ -425,7 +425,17 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 </div>"""
     cancel = ""
     if status == "confirmed":
-        cancel = f"""<div class="panel action-card danger-card">
+        if pending == "cancel":
+            # The badge says a cancellation is in flight; an armed Cancel
+            # button underneath would say the opposite, and a second click
+            # is the exact action this state must not invite. Reconciliation
+            # retries on its own, so the card explains — it does not offer.
+            cancel = f"""<div class="panel action-card danger-card">
+<h2>{icon('x', 'ic')}Cancel</h2>
+<p class="hint">{_esc("A cancellation is being processed. This page will reflect the outcome when it lands — no action is needed.")}</p>
+</div>"""
+        else:
+            cancel = f"""<div class="panel action-card danger-card">
 <h2>{icon('x', 'ic')}Cancel</h2>
 <form id="cancel-form">
 <div class="field"><label for="cancel-reason">Reason (optional)</label>
@@ -440,11 +450,24 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 </div>
 </form>
 </div>"""
+    # A canceled meeting's join link is dead and a fresh .ics would re-add it
+    # as confirmed; the record (reference, when, answers) is all that remains.
+    meeting_is_live = status != "canceled"
     joining = (booking.get("conference", {}) or {}).get("link", "") or "See your calendar invitation."
     if (booking.get("conference", {}) or {}).get("status") == "pending":
         joining = "Joining details are being prepared."
     joining_html = (f"<a class=\"join-link\" href=\"{_esc(joining)}\">{_esc(joining)}</a>"
                     if str(joining).startswith("http") else _esc(joining))
+    joining_row = (f"<div class=\"row-line\"><span class=\"label\">Joining</span><span>{joining_html}</span></div>"
+                   if meeting_is_live else "")
+    ics_button = (f"<p><a class=\"btn secondary sm\" href=\"{_esc(ics_url)}\">"
+                  f"{icon('download', 'ic')} Add to calendar (.ics)</a></p>"
+                  if meeting_is_live else "")
+    # The closing note describes the page honestly per state: actions exist
+    # only under a confirmed booking, so only that state may point at them.
+    status_note = ("Opening this page changes nothing. Canceling or rescheduling needs the explicit action below."
+                   if status == "confirmed" else
+                   "This booking is canceled. Its time was released — nothing here needs your attention.")
     cfg = {"token": token, "apiBase": "/api/v1",
            "revision": booking.get("revision", 0), "duration": booking.get("duration_min", 30),
            "timezone": display_tz if tz_ok else "UTC"}
@@ -456,11 +479,11 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 <div class="manage-summary">
 <div class="row-line"><span class="label">Reference</span><span class="ref-chip">{_esc(booking.get('reference', ''))}</span></div>
 <div class="row-line"><span class="label">When</span><span>{_human_when(booking)}</span></div>
-<div class="row-line"><span class="label">Joining</span><span>{joining_html}</span></div>
+{joining_row}
 </div>
-<p><a class="btn secondary sm" href="{_esc(ics_url)}">{icon('download', 'ic')} Add to calendar (.ics)</a></p>
+{ics_button}
 {_answers_block(questions or [], booking)}
-{_status_box('manage-status', 'Opening this page changes nothing. Canceling or rescheduling needs the explicit action below.')}
+{_status_box('manage-status', status_note)}
 </div>
 {reschedule}
 {cancel}

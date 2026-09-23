@@ -91,6 +91,42 @@ def test_manage_page_shows_the_invitee_their_answers():
     assert "Acme" not in response["body"]
 
 
+def test_manage_page_a_canceled_booking_offers_no_actions():
+    # A canceled meeting has no join link worth clicking and no calendar
+    # file worth downloading (a fresh .ics would re-add it as confirmed),
+    # and the closing note must not point at actions that do not exist.
+    booking = {"status": "canceled", "pending_action": "", "revision": 2,
+               "duration_min": 30,
+               "start_iso": "2026-10-06T09:00:00+02:00", "end_iso": "2026-10-06T09:30:00+02:00",
+               "reference": "AB12-CD34", "answers": {},
+               "conference": {"status": "ready", "link": "https://meet.example.com/gone"}}
+    body = render.manage_page(booking=booking, token="tok", ics_url="/ics",
+                              durations=[30], questions=[])["body"]
+    assert "Booking canceled" in body
+    assert "Joining" not in body and "meet.example.com" not in body
+    assert "Add to calendar" not in body
+    assert "needs the explicit action below" not in body
+    assert "This booking is canceled" in body
+
+
+def test_manage_page_a_pending_cancellation_is_not_rearmed():
+    # While a cancellation is in flight the badge says so; an armed Cancel
+    # button underneath would invite the exact second click the state rules
+    # out. The card explains instead, and rescheduling stays visible (the
+    # server refuses it while the cancellation is unresolved).
+    booking = {"status": "confirmed", "pending_action": "cancel", "revision": 1,
+               "duration_min": 30,
+               "start_iso": "2026-10-06T09:00:00+02:00", "end_iso": "2026-10-06T09:30:00+02:00",
+               "reference": "AB12-CD34", "answers": {},
+               "conference": {"status": "ready", "link": "https://meet.example.com/x"}}
+    body = render.manage_page(booking=booking, token="tok", ics_url="/ics",
+                              durations=[30], questions=[])["body"]
+    assert "Cancellation pending" in body
+    assert 'id="cancel-form"' not in body
+    assert "A cancellation is being processed" in body
+    assert 'id="reschedule-form"' in body
+
+
 def test_admin_rejects_an_invalid_question_configuration(table):
     store.ensure_seed()
     item = store.get_event_type("dtc-30")
