@@ -212,7 +212,7 @@
   }
 
   async function loadOverview() {
-    const [data, settings, typeData, upcoming, conn] = await Promise.all([
+    const [data, settings, typeData, upcoming, conn, calOpts] = await Promise.all([
       call("/overview"),
       hostSettings(),
       call("/event-types").catch(() => ({})),
@@ -220,6 +220,7 @@
       // as {}: null says "the load failed" so the panel can say so too.
       call("/bookings?status=confirmed").catch(() => null),
       call("/dapier").catch(() => ({})),
+      call("/calendar/options").catch(() => null),
     ]);
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const health = data.health || {};
@@ -245,15 +246,28 @@
     const connHead = el("div");
     connHead.className = "panel-head";
     connHead.appendChild(el("h2", "Calendar connection"));
-    if (conn.authorize_url) {
-      const auth = el("a", "Authorize in Dapier");
+    if (conn.connection_ref) {
+      const auth = el("button", "Authorize with Google");
       auth.className = "btn sm";
-      auth.href = conn.authorize_url;
-      // Dapier is another host; it owns the account verification and the
-      // agent grant, and this console has nothing to gain from trapping
-      // the navigation.
-      auth.target = "_blank";
-      auth.rel = "noopener noreferrer";
+      auth.type = "button";
+      auth.addEventListener("click", async () => {
+        // The consent URL comes from the machine-identity connect flow, so
+        // the host approves on Google's own screen — no Dapier sign-in.
+        // Locked while in flight; a double click must not fire two starts.
+        auth.disabled = true;
+        try {
+          const res = await call("/dapier/connect", { method: "POST", body: "{}" });
+          window.location.href = res.authorize_url;
+        } catch (err) {
+          auth.disabled = false;
+          const note = el("span");
+          note.className = "saved-note error visible";
+          note.setAttribute("role", "alert");
+          note.textContent = `Could not start the authorization — ${why(err)}.`;
+          connHead.appendChild(note);
+          setTimeout(() => note.remove(), 4000);
+        }
+      });
       connHead.appendChild(auth);
     }
     connPanel.appendChild(connHead);
@@ -271,9 +285,75 @@
       connAccount.appendChild(document.createTextNode(conn.expected_account));
     } else {
       connAccount.appendChild(document.createTextNode(
-        "Not authorized yet — open Dapier, verify your Google account on this connection, and grant the personal-scheduler agent access to it."));
+        "Not authorized yet — Authorize with Google verifies your account and grants this scheduler access."));
     }
     connPanel.appendChild(connAccount);
+    if (calOpts) {
+      // The shelf of writable calendars follows the connection facts: with
+      // no calendar selected every booking attempt fails closed, so the
+      // choice is the panel's whole point, not a hidden settings field.
+      const picker = el("div");
+      picker.className = "conn-picker";
+      const label = el("label", "Calendar for bookings");
+      label.htmlFor = "calendar-select";
+      const select = el("select");
+      select.id = "calendar-select";
+      const options = calOpts.options || [];
+      const selected = calOpts.selected_calendar_id || "";
+      let haveSelected = false;
+      for (const cal of options) {
+        const opt = el("option", cal.primary ? `${cal.summary} (primary)` : cal.summary);
+        opt.value = cal.id;
+        if (cal.id === selected) haveSelected = true;
+        select.appendChild(opt);
+      }
+      if (selected && !haveSelected) {
+        // The stored choice stays visible even when the shelf has moved on.
+        const missing = el("option", selected);
+        missing.value = selected;
+        select.appendChild(missing);
+      }
+      if (selected) select.value = selected;
+      else {
+        const placeholder = el("option", "Choose a calendar…");
+        placeholder.value = "";
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        select.insertBefore(placeholder, select.firstChild);
+      }
+      const save = el("button", "Save");
+      save.className = "btn sm secondary";
+      save.type = "button";
+      save.disabled = select.value === selected;
+      select.addEventListener("change", () => { save.disabled = false; });
+      save.addEventListener("click", async () => {
+        save.disabled = true;
+        try {
+          await call("/calendar/selected", {
+            method: "PUT",
+            body: JSON.stringify({ selected_calendar_id: select.value }),
+          });
+          // The rebuild carries the fresh connection facts; the keyboard
+          // lands back on this panel like every other save here.
+          loadOverview().then(() => {
+            const again = document.querySelector("#overview .calendar-connection");
+            if (again) { again.tabIndex = -1; again.focus({ preventScroll: true }); }
+          }, () => {});
+        } catch (err) {
+          save.disabled = false;
+          const note = el("span");
+          note.className = "saved-note error visible";
+          note.setAttribute("role", "alert");
+          note.textContent = `Could not save that choice — ${why(err)}.`;
+          picker.appendChild(note);
+          setTimeout(() => note.remove(), 4000);
+        }
+      });
+      picker.appendChild(label);
+      picker.appendChild(select);
+      picker.appendChild(save);
+      connPanel.appendChild(picker);
+    }
     box.appendChild(connPanel);
     // The pause control lives in the schedule panel's header row: a button
     // floating between the stat tiles and the panel read as an orphan with

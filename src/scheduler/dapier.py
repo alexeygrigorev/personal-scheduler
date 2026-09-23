@@ -66,6 +66,11 @@ class DapierClient:
     def get_access(self, connection_id: str, required_scopes: list[str]) -> CalendarAccess:
         raise NotImplementedError
 
+    def start_connect(self, connection_id: str) -> str:
+        """Return the provider consent URL that binds this connection to its
+        provider account — the agent-API connect flow."""
+        raise NotImplementedError
+
 
 class FakeDapierClient(DapierClient):
     """Scripted test double: renewal without refresh tokens, wrong-account
@@ -81,6 +86,7 @@ class FakeDapierClient(DapierClient):
         self.wrong_account: str | None = None
         self.missing_scopes: set[str] = set()
         self.renewals = 0
+        self.connect_url = "https://accounts.google.com/o/oauth2/v2/auth?client_id=fake"
 
     def _check(self, connection_id, required):
         if self.outage:
@@ -102,6 +108,10 @@ class FakeDapierClient(DapierClient):
                               scopes=list(required_scopes),
                               expires_at_epoch=int(time.time()) + 300,
                               token=f"fake-token-{self.renewals}")
+
+    def start_connect(self, connection_id: str) -> str:
+        self._check(connection_id, [])
+        return self.connect_url
 
 
 class HttpDapierClient(DapierClient):
@@ -162,6 +172,43 @@ class HttpDapierClient(DapierClient):
                 token=payload["access_token"])
         except KeyError as exc:
             raise DapierError(f"dapier token response is missing {exc}") from exc
+
+    def start_connect(self, connection_id: str) -> str:
+        """Ask Dapier's agent API for this connection's provider consent URL.
+
+        The request carries the enrolled machine identity, so the browser
+        never signs into Dapier: the returned URL goes straight to the
+        provider's consent screen, and Dapier's callback completes the
+        account binding."""
+        if not self.base_url or not self.agent or self.identity is None:
+            raise DapierNotConfigured(
+                "dapier machine access is not configured: base URL, agent, "
+                "and the enrolled identity secret are all required")
+        body = json.dumps({"connection_id": connection_id,
+                           "agent": self.agent}).encode()
+        request = urllib.request.Request(
+            self.base_url + "/api/agent/connections/"
+            + urllib.parse.quote(connection_id) + "/connect",
+            data=body, method="POST",
+            headers={"content-type": "application/json",
+                     "authorization": f"Bearer {self.identity.bearer()}"})
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as handle:
+                payload = json.loads(handle.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403, 404):
+                # Identity refused, missing connect grant, or unknown
+                # connection: none of these heal by retrying.
+                raise GrantDenied(
+                    f"dapier refused the connect start for {connection_id} "
+                    f"({exc.code})") from exc
+            raise DapierUnavailable(f"dapier error {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise DapierUnavailable(f"dapier unreachable: {exc}") from exc
+        authorize_url = payload.get("authorize_url")
+        if not authorize_url:
+            raise DapierError("dapier connect response had no authorize_url")
+        return str(authorize_url)
 
 
 class DtcRefreshIdentity:

@@ -268,7 +268,10 @@ def test_a_rejected_address_flags_the_slug_field_itself():
     js = _admin_js()
     call = js.split("async function call(path, options)", 1)[1]
     assert "err.code = data.error && data.error.code;" in call
-    handler = js.split('save.addEventListener("click"', 1)[1]
+    # Scope to the details editor's save handler: the overview's calendar
+    # picker has its own save listener earlier in the file.
+    editor = js.split('withdraw(slugInput, slugField.querySelector(".error"));', 1)[1]
+    handler = editor.split('save.addEventListener("click"', 1)[1]
     catch = handler.split("} catch (err)", 1)[1].split("});", 1)[0]
     assert 'err.code === "invalid_input" && /The address /.test(err.message)' in catch
     assert "flag(slugInput, slugField.querySelector(\".error\")" in catch
@@ -301,3 +304,41 @@ def test_settings_timezone_select_speaks_the_picker_dialect():
     assert "current ? [current, ...rest] : rest" in build
     assert "new Option(offsetLabel(zone), zone)" in build
     assert 'if (zone === "UTC") return "UTC";' in build
+
+
+def test_the_connection_card_starts_the_machine_identity_connect_and_picks_the_calendar():
+    # The consent URL must come from the POST connect flow (machine identity,
+    # no Dapier sign-in), not from a static href — and the picker writes the
+    # choice back through the checked endpoint, with the label bound to the
+    # select so screen readers name the control.
+    overview = _admin_js().split("async function loadOverview", 1)[1].split(
+        "async function loadTypes", 1)[0]
+    assert 'el("button", "Authorize with Google")' in overview
+    assert 'call("/dapier/connect", { method: "POST", body: "{}" })' in overview
+    assert "window.location.href = res.authorize_url" in overview
+    assert 'call("/calendar/options").catch(() => null)' in overview
+    assert 'call("/calendar/selected", {' in overview
+    assert 'label.htmlFor = "calendar-select"' in overview
+    # An unkept choice must never read as made: with nothing selected the
+    # Save stays disabled until the host actually picks one.
+    assert "save.disabled = select.value === selected;" in overview
+    assert 'select.addEventListener("change", () => { save.disabled = false; });' in overview
+
+
+def test_the_connection_card_starts_the_machine_identity_connect_and_picks_the_calendar():
+    # The consent URL must come from the POST connect flow (machine identity,
+    # no Dapier sign-in), not from a static href — and the picker writes the
+    # choice back through the checked endpoint, with the label bound to the
+    # select so screen readers name the control.
+    overview = _admin_js().split("async function loadOverview", 1)[1].split(
+        "async function loadTypes", 1)[0]
+    assert 'el("button", "Authorize with Google")' in overview
+    assert 'call("/dapier/connect", { method: "POST", body: "{}" })' in overview
+    assert "window.location.href = res.authorize_url" in overview
+    assert 'call("/calendar/options").catch(() => null)' in overview
+    assert 'call("/calendar/selected", {' in overview
+    assert 'label.htmlFor = "calendar-select"' in overview
+    # An unkept choice must never read as made: with nothing selected the
+    # Save stays disabled until the host actually picks one.
+    assert "save.disabled = select.value === selected;" in overview
+    assert 'select.addEventListener("change", () => { save.disabled = false; });' in overview

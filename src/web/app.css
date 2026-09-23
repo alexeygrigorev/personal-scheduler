@@ -1029,6 +1029,9 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 .calendar-connection .conn-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.375rem; margin: 0.375rem 0 0; color: var(--muted); font-size: var(--fs-secondary); }
 .calendar-connection .conn-line strong { color: var(--ink); }
 .calendar-connection .panel-head .btn { flex: none; white-space: nowrap; }
+.calendar-connection .conn-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.calendar-connection .conn-picker label { font-size: var(--fs-secondary); }
+.calendar-connection .conn-picker select { min-height: 2.75rem; max-width: 24rem; }
 /* Panel header row: title left, its governing action (pause/resume) right. */
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.625rem 1rem; flex-wrap: wrap; margin-bottom: 0.375rem; }
 .panel-head h2 { margin: 0; }

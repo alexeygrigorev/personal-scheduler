@@ -287,6 +287,40 @@ def test_admin_dapier_handoff(live):
     assert data["connection_ref"] == "calendar-alexey"
     assert data["authorize_url"] == ("https://dapier.dtcdev.click"
                                      "/api/admin/oauth/calendar-alexey/start")
+    # The machine-identity connect flow: the consent URL comes back from
+    # Dapier's agent API, so the host approves on Google without a Dapier
+    # sign-in of their own.
+    connect = call(admin_handler.lambda_handler, "/admin/api/dapier/connect",
+                   method="POST", body={}, cookies=cookies)
+    assert connect.statusCode == 200
+    assert json.loads(connect["body"])["authorize_url"].startswith(
+        "https://accounts.google.com/o/oauth2/v2/auth?")
+
+
+def test_admin_calendar_selection(live):
+    """The picker's shelf lists the connected account's writable calendars,
+    and a pick is checked for writability before it becomes the target every
+    booking is written to."""
+    cookies = [admin_session("host@datatalks.club")]
+    res = call(admin_handler.lambda_handler, "/admin/api/calendar/options",
+               cookies=cookies)
+    assert res.statusCode == 200
+    data = json.loads(res["body"])
+    assert data["selected_calendar_id"] == "cal-1"
+    assert [o["id"] for o in data["options"]] == ["cal-1"]
+    picked = call(admin_handler.lambda_handler, "/admin/api/calendar/selected",
+                  method="PUT", cookies=cookies,
+                  body={"selected_calendar_id": "cal-1"})
+    assert picked.statusCode == 200
+    assert json.loads(picked["body"])["selected_calendar_id"] == "cal-1"
+    empty = call(admin_handler.lambda_handler, "/admin/api/calendar/selected",
+                 method="PUT", cookies=cookies, body={"selected_calendar_id": ""})
+    assert empty.statusCode == 422
+    wiring.get()[1].writable = False
+    unwritable = call(admin_handler.lambda_handler, "/admin/api/calendar/selected",
+                      method="PUT", cookies=cookies,
+                      body={"selected_calendar_id": "cal-1"})
+    assert unwritable.statusCode == 422
 
 
 def test_admin_console_edits_are_version_guarded(live):

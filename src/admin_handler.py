@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from scheduler import config, http, oidc, render, security, service, store, wiring
 from scheduler.calendar import AuthLost, CalendarError
-from scheduler.dapier import DapierError
+from scheduler.dapier import DapierError, GrantDenied
 from scheduler.http import HttpError
 from scheduler.models import EventType, parse_iso, validate_host
 
@@ -235,13 +235,36 @@ def _admin_api(event, segments, method, email):
         raise HttpError(404, "invalid_link", "Unknown booking action.")
     if segments == ["calendar"] and method == "GET":
         return http.json_response(200, store.get_calendar_connection())
+    if segments == ["calendar", "options"] and method == "GET":
+        # The picker's shelf: writable calendars of the connected account.
+        # A dead integration surfaces as 503 (handled at the door) rather
+        # than as an empty list, which would read as "no calendars".
+        provider = wiring.get()[1]
+        return http.json_response(200, {
+            "selected_calendar_id": store.get_calendar_connection()
+                                    .get("selected_calendar_id", ""),
+            "options": provider.list_calendars()})
+    if segments == ["calendar", "selected"] and method == "PUT":
+        _require_same_origin(event)
+        calendar_id = str(http.body(event).get("selected_calendar_id") or "").strip()
+        if not calendar_id:
+            raise HttpError(422, "invalid_input", "Pick a calendar first.")
+        provider = wiring.get()[1]
+        try:
+            provider.check_writable(calendar_id)
+        except CalendarError as exc:
+            raise HttpError(422, "invalid_input",
+                            f"That calendar cannot take bookings: {exc}") from exc
+        store.update_calendar_connection({"selected_calendar_id": calendar_id})
+        store.audit("admin", "calendar.select", "calendar", calendar_id,
+                    actor_ref=email)
+        return http.json_response(200, store.get_calendar_connection())
     if segments == ["dapier"] and method == "GET":
         connection = store.get_calendar_connection()
         ref = str(connection.get("dapier_connection_ref") or "")
-        # The console's Authorize button opens Dapier's OAuth start for this
-        # connection — the same action its Connections table labels
-        # Connect/Reconnect. That flow is where account verification and the
-        # agent grant live; this app never handles provider OAuth itself.
+        # Fallback door: Dapier's own OAuth start for this connection (needs
+        # a Dapier operator sign-in). The console's button uses the agent
+        # connect flow below, which needs no Dapier login at all.
         authorize_url = (f"{config.DAPIER_BASE_URL}"
                          f"/api/admin/oauth/{urllib.parse.quote(ref)}/start"
                          if ref else "")
@@ -251,6 +274,25 @@ def _admin_api(event, segments, method, email):
             "expected_provider": connection.get("expected_provider"),
             "expected_account": connection.get("expected_account"),
             "health": (connection.get("health") or {}).get("dapier", "unknown")})
+    if segments == ["dapier", "connect"] and method == "POST":
+        # The machine-identity hand-off: Dapier's agent API returns the
+        # provider's consent URL for this connection, bound to the
+        # scheduler's enrolled identity — the host approves on Google's own
+        # screen without ever signing into Dapier.
+        _require_same_origin(event)
+        ref = str(store.get_calendar_connection().get("dapier_connection_ref") or "")
+        if not ref:
+            raise HttpError(409, "no_connection",
+                            "No calendar connection is configured.")
+        dapier = wiring.get()[0]
+        try:
+            authorize_url = dapier.start_connect(ref)
+        except GrantDenied as exc:
+            raise HttpError(
+                409, "connect_denied",
+                "Dapier refused the connect start — the connection's agent "
+                "grant is missing or revoked.") from exc
+        return http.json_response(200, {"authorize_url": authorize_url})
     if segments == ["settings"] and method == "GET":
         return http.json_response(200, {"host": store.get_host()})
     if segments == ["settings"] and method == "PUT":

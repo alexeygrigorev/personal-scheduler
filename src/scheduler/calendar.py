@@ -59,6 +59,11 @@ class CalendarProvider:
     def check_writable(self, calendar_id: str):
         raise NotImplementedError
 
+    def list_calendars(self):
+        """Calendar entries for the connected account, writable ones only:
+        [{id, summary, access_role, primary}]."""
+        raise NotImplementedError
+
     def query_busy(self, calendar_id: str, start: datetime, end: datetime):
         """Return (busy_intervals, incomplete). Busy intervals are UTC
         (start, end) tuples. incomplete=True fails the range closed."""
@@ -88,6 +93,8 @@ class InMemoryCalendarProvider(CalendarProvider):
         self.by_correlation: dict[str, str] = {}
         self.writable = True
         self.auth_lost = False
+        self.calendars = [{"id": "cal-1", "summary": "Bookings",
+                           "access_role": "owner", "primary": True}]
         self.incomplete = False
         self.timeout_once: set[str] = set()
         self.busy_extra: list = []
@@ -102,6 +109,10 @@ class InMemoryCalendarProvider(CalendarProvider):
         self._guard()
         if not self.writable:
             raise DefinitiveFailure("calendar is read-only")
+
+    def list_calendars(self):
+        self._guard()
+        return [dict(c) for c in self.calendars]
 
     def _blocks(self, event: dict) -> bool:
         if event.get("status") in ("cancelled", "deleted"):
@@ -231,6 +242,20 @@ class RestGoogleCalendarProvider(CalendarProvider):
         entry = self._request("GET", f"/users/me/calendarList/{urllib.parse.quote(calendar_id)}")
         if entry.get("accessRole") not in ("owner", "writer"):
             raise DefinitiveFailure("selected calendar is not writable")
+
+    def list_calendars(self):
+        response = self._request("GET", "/users/me/calendarList",
+                                 params={"minAccessRole": "writer",
+                                         "showHidden": "false", "maxResults": "250"})
+        entries = []
+        for item in response.get("items") or []:
+            if item.get("deleted"):
+                continue
+            entries.append({"id": item["id"],
+                            "summary": item.get("summary") or item["id"],
+                            "access_role": item.get("accessRole", "reader"),
+                            "primary": bool(item.get("primary"))})
+        return entries
 
     def query_busy(self, calendar_id: str, start: datetime, end: datetime):
         try:
