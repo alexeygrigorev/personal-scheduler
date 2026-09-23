@@ -99,7 +99,12 @@
   }
 
   function renderSkeleton() {
-    timesHead.hidden = true;
+    // The times section used to sit out the skeleton entirely and materialize
+    // at once when the fetch landed, shoving everything below it down by the
+    // height of the list. The head stays up and shimmer chips hold the space.
+    timesHead.hidden = false;
+    const hint = $("times-day");
+    if (hint) hint.textContent = "";
     const grid = $("day-grid");
     grid.innerHTML = "";
     for (let i = 0; i < 28; i++) {
@@ -108,7 +113,14 @@
       block.setAttribute("aria-hidden", "true");
       grid.appendChild(block);
     }
-    renderTimes([]);
+    const list = $("time-list");
+    list.innerHTML = "";
+    for (let i = 0; i < 12; i++) {
+      const block = document.createElement("li");
+      block.className = "skeleton-row";
+      block.setAttribute("aria-hidden", "true");
+      list.appendChild(block);
+    }
   }
 
   function renderMonthLabel() {
@@ -122,6 +134,10 @@
     renderMonthLabel();
     const grid = $("day-grid");
     grid.innerHTML = "";
+    // renderSkeleton parks shimmer chips in the times list; an empty or
+    // failed month must clear them, or the shimmer outlives the load.
+    const list = $("time-list");
+    list.innerHTML = "";
     // The status box above already says there is nothing bookable; this line
     // only tells the visitor what to do next, so it stays plain and quiet.
     const cell = document.createElement("div");
