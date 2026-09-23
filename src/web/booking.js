@@ -285,6 +285,10 @@
         });
       } else {
         btn.disabled = true;
+        // Inert either way (disabled buttons take no focus), but the DOM
+        // should not advertise twenty-odd tab stops the roving grid below
+        // will never manage.
+        btn.tabIndex = -1;
         btn.setAttribute("aria-label", `No availability: ${label}`);
       }
       grid.appendChild(btn);
@@ -348,6 +352,11 @@
       btn.addEventListener("click", () => {
         state.selectedStart = slot.start;
         state.selectedEnd = slot.end;
+        // The taken-slot verdict asked for exactly one thing: a fresh pick.
+        // Once a pick lands, the message must not outlive the choice it was
+        // about and read as if the new slot were suspect too.
+        const verdict = document.getElementById("times-verdict");
+        if (verdict) verdict.remove();
         renderTimes(slots, { restoreFocus: true });
         updateSummary();
         showDetails(true);
