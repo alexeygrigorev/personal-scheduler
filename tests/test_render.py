@@ -172,8 +172,10 @@ def test_taken_banner_speaks_once_in_one_voice():
         quote = '"' if '"' in tail else "`"
         texts.append(tail.split(quote, 1)[0])
     assert len(texts) >= 2 and len(texts) % 2 == 0
-    # Banner and verdict alternate; each pair is one sentence in one voice.
-    assert sorted(texts[::2]) == sorted(texts[1::2])
+    # The block speaks the banner's sentences first, then the verdict's —
+    # arm for arm, in the same order. Half against half must match exactly.
+    half = len(texts) // 2
+    assert texts[:half] == texts[half:]
 
 
 def test_autofilled_other_text_opens_the_reveal():

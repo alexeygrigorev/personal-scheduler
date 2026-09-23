@@ -873,26 +873,41 @@
       pickedOther = ev.target; pickedOtherAt = ev.timeStamp;
     }
   }, true);
+  // The reveal follows the group's state, whatever drove it: a radio click,
+  // a load with an answer already checked, or filler text landing in the
+  // input without any click at all — fillers fire input, or change alone.
+  const syncOther = (field) => {
+    field.classList.toggle("other-open",
+      !!field.querySelector("[data-other-radio]:checked"));
+  };
   document.getElementById("details-form").addEventListener("change", (ev) => {
-    if (!ev.target.matches("input[type=radio][data-question]")) return;
     const field = ev.target.closest(".choice-field");
     if (!field) return;
     field.removeAttribute("aria-invalid");
-    field.classList.toggle("other-open",
-      !!field.querySelector("[data-other-radio]:checked"));
+    if (ev.target.matches("[data-other-input]")) {
+      if (ev.target.value.trim() !== "") {
+        const radio = field.querySelector("[data-other-radio]");
+        if (radio) radio.checked = true;
+      }
+      syncOther(field);
+      return;
+    }
+    if (!ev.target.matches("input[type=radio][data-question]")) return;
+    syncOther(field);
     if (ev.target !== pickedOther || ev.timeStamp - pickedOtherAt > 750) return;
     pickedOther = null;
     const otherInput = field.querySelector("[data-other-input]");
     if (otherInput) otherInput.focus();
   });
-  document.querySelectorAll(".choice-field").forEach((field) => {
-    field.classList.toggle("other-open",
-      !!field.querySelector("[data-other-radio]:checked"));
-  });
+  document.querySelectorAll(".choice-field").forEach(syncOther);
   document.getElementById("details-form").addEventListener("input", (ev) => {
-    if (!ev.target.matches("[data-other-input]") || ev.target.value.trim() === "") return;
-    const radio = ev.target.closest(".choice-field").querySelector("[data-other-radio]");
-    if (radio && !radio.checked) radio.checked = true;
+    if (!ev.target.matches("[data-other-input]")) return;
+    const field = ev.target.closest(".choice-field");
+    if (ev.target.value.trim() !== "") {
+      const radio = field.querySelector("[data-other-radio]");
+      if (radio) radio.checked = true;
+    }
+    syncOther(field);
   });
 
   const now = new Date();
