@@ -276,7 +276,8 @@
     box.appendChild(panel);
   }
 
-  // The one open questions editor across the table, as { button, editorRow }.
+  // The one open row editor across the table — details or questions — as
+  // { button, editorRow, requestClose }.
   let openEditor = null;
 
   // Every path that dismisses the editor funnels through here: the row
@@ -385,8 +386,27 @@
         if (ev.key === "Escape" && toggle.dataset.armed) disarm();
       });
       stack.appendChild(toggle);
+      // Two editors share the row now — details and questions — so each
+      // toggle names its own editor. The post-save keyboard handbacks aim
+      // with this attribute: a bare [aria-expanded] would match whichever
+      // expandable button comes first and land the keyboard on the wrong one.
+      const details = el("button", "Details");
+      details.className = "btn sm secondary";
+      details.dataset.editor = "details";
+      details.setAttribute("aria-expanded", "false");
+      details.addEventListener("click", () => {
+        const wasOpen = openEditor && openEditor.button === details;
+        if (openEditor && !openEditor.requestClose()) return;
+        closeEditor();
+        if (wasOpen) return;
+        details.setAttribute("aria-expanded", "true");
+        const opened = openDetailsEditor(t, row);
+        openEditor = { button: details, editorRow: opened.row, requestClose: opened.requestClose };
+      });
+      stack.appendChild(details);
       const edit = el("button", "Questions");
       edit.className = "btn sm secondary";
+      edit.dataset.editor = "questions";
       edit.setAttribute("aria-expanded", "false");
       edit.addEventListener("click", () => {
         // One editor per type at a time, enforced: opening another type's
@@ -412,6 +432,299 @@
     }
     if (!(data.event_types || []).length) emptyRow(tbody, 5, "No event types yet.");
     box.appendChild(wrap);
+  }
+
+  // --- type details editor ---------------------------------------------------
+  // The server merges every field a PUT carries, so the editor sends only
+  // what it owns — name, description, page address, and the length rules —
+  // and never a questions or visibility key: those belong to the other
+  // editors, and re-sending them here would save a stale copy over a
+  // newer one.
+  const PICKABLE_DURATIONS = [30, 60, 90, 120, 150, 180]; // mirrors models.ALLOWED_FLEXIBLE_DURATIONS
+
+  function openDetailsEditor(t, hostRow) {
+    // The row's position among the type rows: the post-save reload rebuilds
+    // the table, and the keyboard must land back on this row's Details
+    // toggle (now collapsed) instead of the top of the document.
+    const rowIndex = [...hostRow.parentNode.children].indexOf(hostRow);
+    const editorRow = el("tr");
+    const cell = el("td");
+    cell.colSpan = 5;
+    editorRow.appendChild(cell);
+    const panel = el("div");
+    panel.className = "panel q-editor";
+    panel.setAttribute("aria-label", `Details for ${t.title}`);
+    const seedFixed = Number(t.fixed_duration_min);
+    const draft = {
+      title: t.title || "",
+      description: t.description || "",
+      slug: t.slug || "",
+      mode: t.duration_mode === "selectable" ? "selectable" : "fixed",
+      fixed: Number.isFinite(seedFixed) && seedFixed > 0 ? seedFixed : 30,
+      allowed: new Set(t.allowed_durations || []),
+    };
+    const save = el("button", "Save details");
+    save.type = "button";
+    save.className = "btn";
+    const close = el("button", "Close");
+    close.type = "button";
+    close.className = "btn secondary";
+    close.addEventListener("click", () => { if (requestClose()) closeEditor(); });
+    const head = el("div");
+    head.className = "panel-head";
+    head.appendChild(el("h2", "Type details"));
+    panel.appendChild(head);
+    const intro = el("p", "The name, description, page address, and meeting length visitors see.");
+    intro.className = "hint";
+    panel.appendChild(intro);
+    const fieldError = (field, id) => {
+      const err = el("span");
+      err.className = "error";
+      err.id = id;
+      err.setAttribute("role", "alert");
+      field.appendChild(err);
+      return err;
+    };
+    // The failing field describes its own error, and typing withdraws the
+    // flag — the settings form's grammar, field for field.
+    const titleField = el("div");
+    titleField.className = "field";
+    const titleLab = el("label", "Name");
+    titleLab.htmlFor = "det-title";
+    const titleInput = el("input");
+    titleInput.id = "det-title";
+    titleInput.value = draft.title;
+    titleInput.setAttribute("aria-describedby", "det-err-title");
+    titleField.append(titleLab, titleInput);
+    fieldError(titleField, "det-err-title");
+    panel.appendChild(titleField);
+    const descField = el("div");
+    descField.className = "field";
+    const descLab = el("label", "Description");
+    descLab.htmlFor = "det-description";
+    const descInput = el("textarea");
+    descInput.id = "det-description";
+    descInput.rows = 3;
+    descInput.value = draft.description;
+    descField.append(descLab, descInput);
+    descField.appendChild(el("span", "Shown under the name on the public page.")).className = "hint";
+    panel.appendChild(descField);
+    const slugField = el("div");
+    slugField.className = "field";
+    const slugLab = el("label", "Slug");
+    slugLab.htmlFor = "det-slug";
+    const slugInput = el("input");
+    slugInput.id = "det-slug";
+    slugInput.value = draft.slug;
+    slugInput.setAttribute("aria-describedby", "det-err-slug det-slug-hint");
+    slugField.append(slugLab, slugInput);
+    fieldError(slugField, "det-err-slug");
+    const slugHint = el("span");
+    slugHint.id = "det-slug-hint";
+    slugHint.className = "hint";
+    const slugCode = el("code", `/${draft.slug || "…"}`);
+    slugHint.append("Public page address: ", slugCode, ". Changing it moves the page — old links stop working.");
+    slugField.appendChild(slugHint);
+    // The address hint mirrors the field live: an admin renaming the slug
+    // watches the URL move as they type, not after the save.
+    slugInput.addEventListener("input", () => {
+      slugCode.textContent = `/${slugInput.value.trim() || "…"}`;
+    });
+    panel.appendChild(slugField);
+    const durField = el("div");
+    durField.className = "field";
+    const durGroup = el("div");
+    durGroup.setAttribute("role", "radiogroup");
+    durGroup.setAttribute("aria-label", "Meeting length");
+    const fixedRow = el("label");
+    fixedRow.className = "q-check dur-row";
+    const fixedRadio = el("input");
+    fixedRadio.type = "radio";
+    fixedRadio.name = "det-duration-mode";
+    fixedRadio.value = "fixed";
+    fixedRadio.checked = draft.mode === "fixed";
+    fixedRow.appendChild(fixedRadio);
+    fixedRow.appendChild(document.createTextNode("Fixed length —"));
+    // The number and its unit travel together: hiding only the input
+    // stranded "minutes" beside the dash when invitee-picks was chosen.
+    const fixedWrap = el("span");
+    const fixedInput = el("input");
+    fixedInput.type = "number";
+    fixedInput.min = "1";
+    fixedInput.max = "180";
+    fixedInput.value = String(draft.fixed);
+    fixedInput.setAttribute("aria-label", "Fixed length in minutes");
+    fixedInput.setAttribute("aria-describedby", "det-err-duration");
+    fixedWrap.appendChild(fixedInput);
+    fixedWrap.appendChild(document.createTextNode(" minutes"));
+    fixedRow.appendChild(fixedWrap);
+    durGroup.appendChild(fixedRow);
+    const pickRow = el("label");
+    pickRow.className = "q-check dur-row";
+    const pickRadio = el("input");
+    pickRadio.type = "radio";
+    pickRadio.name = "det-duration-mode";
+    pickRadio.value = "selectable";
+    pickRadio.checked = draft.mode === "selectable";
+    pickRow.appendChild(pickRadio);
+    pickRow.appendChild(document.createTextNode("Invitee picks the length"));
+    durGroup.appendChild(pickRow);
+    const chips = el("div");
+    chips.className = "dur-opts";
+    chips.setAttribute("role", "group");
+    chips.setAttribute("aria-label", "Lengths invitees can pick");
+    for (const min of PICKABLE_DURATIONS) {
+      const chip = el("label");
+      chip.className = "q-check";
+      const box = el("input");
+      box.type = "checkbox";
+      box.value = String(min);
+      box.checked = draft.allowed.has(min);
+      box.addEventListener("change", () => {
+        if (box.checked) draft.allowed.add(min); else draft.allowed.delete(min);
+      });
+      chip.appendChild(box);
+      chip.appendChild(document.createTextNode(fmtDuration(min)));
+      chips.appendChild(chip);
+    }
+    durGroup.appendChild(chips);
+    const syncDur = () => {
+      draft.mode = fixedRadio.checked ? "fixed" : "selectable";
+      fixedWrap.hidden = draft.mode !== "fixed";
+      chips.hidden = draft.mode !== "selectable";
+    };
+    fixedRadio.addEventListener("change", syncDur);
+    pickRadio.addEventListener("change", syncDur);
+    syncDur();
+    durField.appendChild(durGroup);
+    fieldError(durField, "det-err-duration");
+    panel.appendChild(durField);
+    const foot = el("div");
+    foot.className = "form-actions";
+    const note = el("span");
+    note.className = "saved-note";
+    note.setAttribute("role", "status");
+    // Unsaved edits must not vanish on a close: first close arms the
+    // verdict, the second goes through — the shared arm grammar.
+    let dirty = false, discardArmed = false, disarmTimer = 0;
+    panel.addEventListener("input", () => { dirty = true; }, true);
+    panel.addEventListener("change", () => { dirty = true; }, true);
+    const requestClose = () => {
+      if (!dirty) return true;
+      if (!discardArmed) {
+        discardArmed = true;
+        note.textContent = "Unsaved edits — close again to discard them.";
+        note.classList.add("error", "visible");
+        clearTimeout(disarmTimer);
+        disarmTimer = setTimeout(() => {
+          discardArmed = false;
+          if (note.textContent.startsWith("Unsaved")) {
+            note.classList.remove("error", "visible");
+            note.textContent = "";
+          }
+        }, 4000);
+        return false;
+      }
+      return true;
+    };
+    foot.append(save, close, note);
+    panel.appendChild(foot);
+    // Every failing field wears its own verdict; firstBad only remembers
+    // where the keyboard lands. A `firstBad || flag(...)` short-circuit
+    // here left the slug unnamed whenever the name was also bad — the note
+    // said "fix the fields" while flagging one of them.
+    let firstBad = null;
+    const flag = (input, errNode, message) => {
+      input.setAttribute("aria-invalid", "true");
+      errNode.textContent = message;
+      if (!firstBad) firstBad = input;
+    };
+    const withdraw = (input, errNode) => input.addEventListener("input", () => {
+      if (!errNode.textContent) return;
+      input.removeAttribute("aria-invalid");
+      errNode.textContent = "";
+    });
+    withdraw(titleInput, titleField.querySelector(".error"));
+    withdraw(slugInput, slugField.querySelector(".error"));
+    withdraw(fixedInput, durField.querySelector(".error"));
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      note.classList.remove("error", "visible");
+      // The same rules the server enforces, run first so the failing field
+      // is named on itself and focus lands on the first offender — the
+      // save never flies just to bounce.
+      [titleInput, slugInput, fixedInput, pickRadio].forEach((n) => n.removeAttribute("aria-invalid"));
+      [titleField, slugField, durField].forEach((f) => { f.querySelector(".error").textContent = ""; });
+      draft.title = titleInput.value.trim();
+      draft.slug = slugInput.value.trim();
+      const description = descInput.value.trim();
+      if (!draft.title) {
+        flag(titleInput, titleField.querySelector(".error"), "Give the type a name.");
+      }
+      if (!draft.slug || /\s/.test(draft.slug) || draft.slug.includes("/")) {
+        flag(slugInput, slugField.querySelector(".error"),
+          "Use letters, numbers and hyphens — no spaces or slashes.");
+      }
+      if (draft.mode === "fixed") {
+        const n = Number(fixedInput.value);
+        if (!Number.isInteger(n) || n < 1 || n > 180) {
+          flag(fixedInput, durField.querySelector(".error"),
+            "Set a length between 1 and 180 minutes.");
+        } else {
+          draft.fixed = n;
+        }
+      } else if (!draft.allowed.size) {
+        flag(pickRadio, durField.querySelector(".error"), "Tick at least one length.");
+      }
+      if (firstBad) {
+        firstBad.focus();
+        note.textContent = "Fix the highlighted fields.";
+        note.setAttribute("role", "alert");
+        note.classList.add("error", "visible");
+        save.disabled = false;
+        return;
+      }
+      const payload = {
+        title: draft.title, description, slug: draft.slug,
+        duration_mode: draft.mode, expected_version: t.version,
+      };
+      if (draft.mode === "fixed") payload.fixed_duration_min = draft.fixed;
+      else payload.allowed_durations = [...draft.allowed].sort((a, b) => a - b);
+      try {
+        await call(`/event-types/${t.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        note.textContent = "Saved";
+        note.classList.add("visible");
+        dirty = false;
+        setTimeout(() => {
+          // Only tear down while this editor is still the open one: an
+          // admin who opened another type's editor during the pause must
+          // not have it wiped by the trailing table reload.
+          if (openEditor && openEditor.editorRow === editorRow) {
+            closeEditor();
+            // The reload replaced every row; the saved editor's own
+            // Details button is where a keyboard admin continues.
+            const againIn = () => document.querySelectorAll("#types tbody tr")[rowIndex]
+              ?.querySelector('.actions-stack button[data-editor="details"]');
+            loadTypes().then(() => { const again = againIn(); if (again) again.focus(); },
+              () => { const again = againIn(); if (again) again.focus(); });
+          }
+        }, 900);
+      } catch (err) {
+        save.disabled = false;
+        // Disabling a focused button drops focus to the body; the
+        // verdict's own button keeps a keyboard admin in the conversation.
+        save.focus();
+        note.textContent = `Could not save — ${why(err)}.`;
+        note.setAttribute("role", "alert");
+        note.classList.add("error", "visible");
+      }
+    });
+    cell.appendChild(panel);
+    hostRow.after(editorRow);
+    return { row: editorRow, requestClose };
   }
 
   // --- booking questions editor ---------------------------------------------
@@ -731,7 +1044,7 @@
             // The reload replaced every row; the saved editor's own
             // Questions button is where a keyboard admin continues.
             const againIn = () => document.querySelectorAll("#types tbody tr")[rowIndex]
-              ?.querySelector('.actions-stack button[aria-expanded]');
+              ?.querySelector('.actions-stack button[data-editor="questions"]');
             loadTypes().then(() => { const again = againIn(); if (again) again.focus(); },
               () => { const again = againIn(); if (again) again.focus(); });
           }
