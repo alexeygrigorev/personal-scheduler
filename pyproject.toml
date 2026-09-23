@@ -8,6 +8,7 @@ requires-python = ">=3.12"
 # to src/requirements.txt for SAM; that file is generated, never edited.
 dependencies = [
     "PyJWT[crypto]==2.10.1",
+    "tzdata>=2025.2",
 ]
 
 [dependency-groups]
