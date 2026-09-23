@@ -4,7 +4,7 @@ provider ids, tokens, or credentials."""
 
 import html as html_lib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -254,11 +254,30 @@ def booking_page(item, host_name, viewer_tz="UTC"):
     valid_viewer_tz = viewer_tz if is_valid_zone(viewer_tz) else "UTC"
     cfg = {"slug": item["slug"], "apiBase": "/api/v1", "defaultDuration": default,
            "defaultTimezone": valid_viewer_tz}
+    # Offsets are computed for right now: a picker that reads
+    # "Europe/Berlin (UTC+2)" answers the only question a visitor has when
+    # scanning — which of these is my daylight neighbor. UTC keeps its bare
+    # name (an "UTC+0" suffix on the literal fallback reads like a typo).
+    now = datetime.now(timezone.utc)
+
+    def zone_offset(zone: str):
+        return now.astimezone(ZoneInfo(zone)).utcoffset()
+
+    def zone_label(zone: str) -> str:
+        if zone == "UTC":
+            return "UTC"
+        minutes = int(zone_offset(zone).total_seconds()) // 60
+        sign = "+" if minutes >= 0 else "-"
+        hh, mm = divmod(abs(minutes), 60)
+        return f"{zone} (UTC{sign}{hh:02d}:{mm:02d})"
+
+    rest = [z for z in COMMON_ZONES if z != valid_viewer_tz]
+    rest.sort(key=zone_offset)
     zone_options = []
-    zones = (valid_viewer_tz,) + COMMON_ZONES if valid_viewer_tz not in COMMON_ZONES else COMMON_ZONES
-    for zone in zones:
+    for zone in (valid_viewer_tz, *rest):
         selected = " selected" if zone == cfg["defaultTimezone"] else ""
-        zone_options.append(f"<option value=\"{_esc(zone)}\"{selected}>{_esc(zone)}</option>")
+        zone_options.append(
+            f"<option value=\"{_esc(zone)}\"{selected}>{_esc(zone_label(zone))}</option>")
     if selectable:
         duration_meta = ""
     else:

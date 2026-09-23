@@ -69,3 +69,27 @@ def test_the_taken_retry_focus_lands_visibly():
     assert ".times-verdict:focus, .times-verdict:focus-visible { outline: 2px solid currentColor" in css
     assert ".status:focus, .status:focus-visible { outline: 2px solid currentColor" in css
     assert "outline: none; }" not in css.split(".times-verdict", 1)[1].split(".details-panel-inner", 1)[0]
+
+
+def test_the_browser_zone_joins_the_picker_at_the_top_with_an_offset():
+    # A first visit carries no tz cookie, so the server render cannot pin the
+    # visitor's zone — booking.js must. Appending it last buried the zone the
+    # visitor already picked with their whole life behind nine host picks.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    boot = js.split('const tzSelect = $("tz-select");', 1)[1].split(
+        "tzSelect.value = state.timezone;", 1)[0]
+    assert "insertBefore(opt, tzSelect.firstChild)" in boot
+    assert "shortOffset" in boot
+    assert 'padStart(2, "0")' in boot
+
+
+def test_the_browser_zone_joins_the_picker_at_the_top_with_an_offset():
+    # A first visit carries no tz cookie, so the server render cannot pin the
+    # visitor's zone — booking.js must. Appending it last buried the zone the
+    # visitor already picked with their whole life behind nine host picks.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    boot = js.split('const tzSelect = $("tz-select");', 1)[1].split(
+        "tzSelect.value = state.timezone;", 1)[0]
+    assert "insertBefore(opt, tzSelect.firstChild)" in boot
+    assert "shortOffset" in boot
+    assert 'padStart(2, "0")' in boot

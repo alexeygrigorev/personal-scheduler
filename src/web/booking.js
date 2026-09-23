@@ -1025,9 +1025,24 @@
   rememberTimezone();
   const tzSelect = $("tz-select");
   if (![...tzSelect.options].some((o) => o.value === state.timezone)) {
+    // The browser-reported zone is the visitor's own zone; it leads the list,
+    // matching the server render that pins the cookie zone first. A legacy
+    // alias (Asia/Calcutta) can arrive here, and its label is computed in the
+    // browser because the browser is the one that vouches for the zone.
     const opt = document.createElement("option");
-    opt.value = state.timezone; opt.textContent = state.timezone;
-    tzSelect.appendChild(opt);
+    opt.value = state.timezone;
+    let label = state.timezone;
+    try {
+      const name = new Intl.DateTimeFormat("en", {
+        timeZone: state.timezone, timeZoneName: "shortOffset",
+      }).formatToParts().find((p) => p.type === "timeZoneName").value;
+      // Intl reads "GMT+5:30"; the server-rendered labels pad to +05:30
+      const m = name.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+      const off = m ? `${m[1]}${m[2].padStart(2, "0")}:${m[3] ?? "00"}` : "+00:00";
+      label = `${state.timezone} (UTC${off})`;
+    } catch (err) { /* unformattable zone: the bare name still selects */ }
+    opt.textContent = label;
+    tzSelect.insertBefore(opt, tzSelect.firstChild);
   }
   tzSelect.value = state.timezone;
   $("clock-toggle").textContent = state.hour12 ? "Use 24-hour clock" : "Use 12-hour clock";

@@ -288,3 +288,71 @@ def test_month_jumps_hand_the_keyboard_to_the_grid():
     assert handback.index(".empty-cell.with-action button") < handback.index('button[aria-pressed="true"]')
     assert handback.index('button[aria-pressed="true"]') < handback.index("#day-grid .empty-cell")
     assert "focus({ preventScroll: true })" in handback
+
+
+def _booking_page_in_zone(zone):
+    et = {"id": "et-chat", "slug": "career-chat", "title": "Career chat",
+          "description": "Bring your questions.", "duration_mode": "selectable",
+          "allowed_durations": [30, 45, 60], "fixed_duration_min": 0,
+          "questions": [], "visibility": "listed", "version": 1}
+    return render.booking_page(et, "Alexey Grigorev", zone)["body"]
+
+
+def test_timezone_picker_leads_with_the_visitor_zone():
+    html = _booking_page_in_zone("Asia/Calcutta")
+    options = re.findall(r'<option value="([^"]+)"', html)
+    assert options[0] == "Asia/Calcutta"
+    assert options.index("Europe/Berlin") > 0
+
+
+def test_timezone_picker_labels_carry_current_offsets():
+    html = _booking_page_in_zone("Asia/Calcutta")
+    assert '(UTC+05:30)' in html
+    assert re.search(r'Europe/Berlin \(UTC[+-]\d{2}:\d{2}\)', html)
+
+
+def test_timezone_picker_keeps_bare_utc_bare():
+    html = _booking_page_in_zone("Asia/Calcutta")
+    assert '<option value="UTC">UTC</option>' in html
+
+
+def test_timezone_picker_sorts_common_zones_by_offset():
+    html = _booking_page_in_zone("Europe/Berlin")
+    options = re.findall(r'<option value="([^"]+)"', html)
+    commons = options[1:]  # visitor zone pinned first, rest offset-ordered
+    assert commons.index("America/Los_Angeles") < commons.index("Europe/London")
+    assert commons.index("Asia/Tokyo") < commons.index("Australia/Sydney")
+
+
+def _booking_page_in_zone(zone):
+    et = {"id": "et-chat", "slug": "career-chat", "title": "Career chat",
+          "description": "Bring your questions.", "duration_mode": "selectable",
+          "allowed_durations": [30, 45, 60], "fixed_duration_min": 0,
+          "questions": [], "visibility": "listed", "version": 1}
+    return render.booking_page(et, "Alexey Grigorev", zone)["body"]
+
+
+def test_timezone_picker_leads_with_the_visitor_zone():
+    html = _booking_page_in_zone("Asia/Calcutta")
+    options = re.findall(r'<option value="([^"]+)"', html)
+    assert options[0] == "Asia/Calcutta"
+    assert options.index("Europe/Berlin") > 0
+
+
+def test_timezone_picker_labels_carry_current_offsets():
+    html = _booking_page_in_zone("Asia/Calcutta")
+    assert '(UTC+05:30)' in html
+    assert re.search(r'Europe/Berlin \(UTC[+-]\d{2}:\d{2}\)', html)
+
+
+def test_timezone_picker_keeps_bare_utc_bare():
+    html = _booking_page_in_zone("Asia/Calcutta")
+    assert '<option value="UTC">UTC</option>' in html
+
+
+def test_timezone_picker_sorts_common_zones_by_offset():
+    html = _booking_page_in_zone("Europe/Berlin")
+    options = re.findall(r'<option value="([^"]+)"', html)
+    commons = options[1:]  # visitor zone pinned first, rest offset-ordered
+    assert commons.index("America/Los_Angeles") < commons.index("Europe/London")
+    assert commons.index("Asia/Tokyo") < commons.index("Australia/Sydney")
