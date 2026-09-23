@@ -148,3 +148,18 @@ def test_taken_banner_speaks_once_in_one_voice():
     assert said and verdict
     text = lambda line: line.split("That time was just taken", 1)[1].split('"', 1)[0]
     assert text(said[0]) == text(verdict[0])
+
+
+def test_autofilled_other_text_opens_the_reveal():
+    # Browsers autofill — and visitors paste — into the Other input without
+    # clicking its radio; the reveal must follow the group's state through
+    # the input event, and a filler that fires only change must not strand
+    # a checked Other with its answer invisible. Every driver goes through
+    # one sync, so the class can never disagree with the radio.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    input_listener = js.split('details-form").addEventListener("input"', 1)[1]
+    assert "syncOther(field)" in input_listener
+    assert 'if (radio) radio.checked = true;' in input_listener
+    change_listener = js.split('details-form").addEventListener("change"', 1)[1]
+    assert "data-other-input" in change_listener.split('input[type=radio]', 1)[0]
+    assert js.count('classList.toggle("other-open"') == 1
