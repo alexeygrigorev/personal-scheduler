@@ -284,3 +284,19 @@ def test_print_drops_the_console_tab_bar():
     print_block = css.split("@media print {", 1)[1].split("forced colors", 1)[0]
     assert ".tabs { display: none !important; }" in print_block
 
+
+
+def test_settings_timezone_select_speaks_the_picker_dialect():
+    # The booking page's picker reads "Europe/Berlin (UTC+02:00)" and scans
+    # in daylight order; the console's Settings select kept a bare, unsorted
+    # zone list, so the same control spoke two dialects across the app. The
+    # settings build must label with the current offset, order the rest by
+    # offset, and lead with the configured zone — while each option VALUE
+    # stays the bare IANA name the API stores.
+    js = _admin_js()
+    build = js.split('if (name === "timezone") {', 1)[1].split("} else {", 1)[0]
+    assert "timeZoneName: " in build and "shortOffset" in build
+    assert "offsetKey(a) - offsetKey(b)" in build
+    assert "current ? [current, ...rest] : rest" in build
+    assert "new Option(offsetLabel(zone), zone)" in build
+    assert 'if (zone === "UTC") return "UTC";' in build
