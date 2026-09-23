@@ -239,7 +239,11 @@
     box.appendChild(panel);
   }
 
+  // The one open questions editor across the table, as { button, editorRow }.
+  let openEditor = null;
+
   async function loadTypes() {
+    openEditor = null;
     const data = await call("/event-types");
     const box = document.getElementById("types");
     box.innerHTML = "";
@@ -321,16 +325,18 @@
       edit.className = "btn sm secondary";
       edit.setAttribute("aria-expanded", "false");
       edit.addEventListener("click", () => {
-        // One editor per type at a time: an open editor row directly below
-        // means this is a toggle, not an invitation to stack panels.
-        const next = row.nextElementSibling;
-        if (next && next.querySelector(".q-editor")) {
-          next.remove();
-          edit.setAttribute("aria-expanded", "false");
-          return;
+        // One editor per type at a time, enforced: opening another type's
+        // editor closes the open one, and clicking this button while its
+        // own editor is up toggles it away.
+        const wasOpen = openEditor && openEditor.button === edit;
+        if (openEditor) {
+          openEditor.editorRow.remove();
+          openEditor.button.setAttribute("aria-expanded", "false");
+          openEditor = null;
         }
+        if (wasOpen) return;
         edit.setAttribute("aria-expanded", "true");
-        openQuestionsEditor(t, row);
+        openEditor = { button: edit, editorRow: openQuestionsEditor(t, row) };
       });
       stack.appendChild(edit);
       const preview = el("a", "Preview");
@@ -617,6 +623,7 @@
     });
     cell.appendChild(panel);
     hostRow.after(editorRow);
+    return editorRow;
   }
 
   async function loadBookings() {
