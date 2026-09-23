@@ -115,3 +115,15 @@ def test_details_fields_carry_the_server_caps():
     assert '<textarea id="f-notes" rows="3" maxlength="2000" aria-describedby="err-notes">' in html
     assert ('<span class="char-count" aria-live="polite"></span>'
             '<span class="error" id="err-notes"') in html
+
+
+def test_picking_a_fresh_slot_retires_the_taken_verdict():
+    # The taken-slot verdict asks for one pick; once that pick lands, the
+    # message must not stay above the times and read as if the new slot
+    # were suspect too. The removal lives in the slot's own click handler,
+    # not in the re-render, so day switches keep the guidance until a
+    # choice is actually made.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    pick = js.split("state.selectedEnd = slot.end;", 1)[1].split("});", 1)[0]
+    assert 'getElementById("times-verdict")' in pick
+    assert ".remove()" in pick
