@@ -297,9 +297,70 @@
     const data = await call("/event-types");
     const box = document.getElementById("types");
     box.innerHTML = "";
+    // The tab's one primary action lives beside its heading like every
+    // other section's — and stays there on an empty list, where it is the
+    // only way forward.
+    const head = el("div");
+    head.className = "panel-head";
+    head.appendChild(el("h2", "Event types"));
+    const create = el("button", "New type");
+    create.type = "button";
+    create.className = "btn sm";
+    const createNote = el("span");
+    createNote.className = "saved-note";
+    head.appendChild(create);
+    head.appendChild(createNote);
+    box.appendChild(head);
+    // Slug pointers are last-write-wins server-side: a colliding slug
+    // would silently steal another type's public address, so the create
+    // uniquifies against every live slug and alias before it flies.
+    const taken = new Set();
+    for (const t of data.event_types || []) {
+      taken.add(t.slug);
+      for (const a of t.aliases || []) taken.add(a);
+    }
+    create.addEventListener("click", async () => {
+      // The create reloads the table, so an editor holding unsaved edits
+      // gets the same arm-to-discard chance as any other close.
+      if (openEditor && !openEditor.requestClose()) return;
+      create.disabled = true;
+      let slug = "new-meeting-type";
+      for (let n = 2; taken.has(slug); n++) slug = `new-meeting-type-${n}`;
+      try {
+        const created = await call("/event-types", {
+          method: "POST",
+          body: JSON.stringify({ title: "New meeting type", slug }),
+        });
+        loadTypes().then(() => {
+          // A fresh type is a placeholder until it is named, so the
+          // keyboard lands inside its own details editor, in the title
+          // field where the naming happens.
+          const freshRow = document.querySelector(`#types tbody tr[data-id="${created.id}"]`);
+          const details = freshRow?.querySelector('button[data-editor="details"]');
+          if (!details) return;
+          details.click();
+          const titleField = freshRow.nextElementSibling?.querySelector(".panel input");
+          if (titleField) titleField.focus();
+        }, () => { create.disabled = false; create.focus(); });
+      } catch (err) {
+        create.disabled = false;
+        create.focus();
+        createNote.textContent = `Could not create the type — ${why(err)}.`;
+        createNote.className = "saved-note error visible";
+        createNote.setAttribute("role", "alert");
+        setTimeout(() => {
+          createNote.className = "saved-note";
+          createNote.textContent = "";
+        }, 4000);
+      }
+    });
     const { wrap, tbody } = tableView([["Title", "col-title"], ["Slug", "col-slug"], ["Duration", ""], ["Visibility", ""], ["", "col-actions"]]);
     for (const t of data.event_types || []) {
       const row = el("tr");
+      // Post-create and post-duplicate reloads aim the keyboard at the
+      // fresh row by id: the clone's sort position is the server's call,
+      // not the index this row happens to sit at now.
+      row.dataset.id = t.id;
       const titleCell = el("td", t.title);
       // Admin titles are free text: one long word must wrap, not clip.
       titleCell.className = "col-title cell-break";
@@ -422,6 +483,49 @@
         openEditor = { button: edit, editorRow: opened.row, requestClose: opened.requestClose };
       });
       stack.appendChild(edit);
+      const dup = el("button", "Duplicate");
+      dup.type = "button";
+      dup.className = "btn sm secondary";
+      // A copy destroys nothing, so unlike the disable toggle this flies
+      // without an arm step. Failure surfaces beside the actions with the
+      // toggle's one-note-per-row grammar.
+      let dupNote = null, dupNoteTimer = 0;
+      dup.addEventListener("click", async () => {
+        if (openEditor && !openEditor.requestClose()) return;
+        dup.disabled = true;
+        // Where this row sits now, for the reload's fallback aim: the
+        // clone usually sorts beside it, and a keyboard admin who misses
+        // the clone should not fall off the table.
+        const rowIndex = [...tbody.children].indexOf(row);
+        try {
+          const clone = await call("/event-types", {
+            method: "POST",
+            body: JSON.stringify({ action: "duplicate", id: t.id }),
+          });
+          loadTypes().then(() => {
+            const again = document.querySelector(`#types tbody tr[data-id="${clone.id}"] .actions-stack button`);
+            if (again) { again.focus(); return; }
+            const fallback = document.querySelectorAll("#types tbody tr")[rowIndex]
+              ?.querySelector(".actions-stack button");
+            if (fallback) fallback.focus();
+          }, () => { dup.disabled = false; dup.focus(); });
+        } catch (err) {
+          dup.disabled = false;
+          // Disabling the focused button dropped the keyboard to the body;
+          // the verdict's own button keeps a keyboard admin in the row.
+          dup.focus();
+          if (!dupNote) {
+            dupNote = el("span");
+            dupNote.className = "saved-note error visible row-error";
+            dupNote.setAttribute("role", "alert");
+            actions.appendChild(dupNote);
+          }
+          dupNote.textContent = `Could not duplicate that type — ${why(err)}.`;
+          clearTimeout(dupNoteTimer);
+          dupNoteTimer = setTimeout(() => { dupNote.remove(); dupNote = null; }, 4000);
+        }
+      });
+      stack.appendChild(dup);
       const preview = el("a", "Preview");
       preview.href = `/${t.slug}`;
       preview.className = "btn sm secondary";

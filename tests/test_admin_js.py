@@ -24,8 +24,8 @@ def test_successful_pause_toggles_keep_the_keyboard_on_the_fresh_toggle():
 def test_successful_type_toggles_keep_the_keyboard_in_their_row():
     js = _admin_js()
     # One handback in the disable/enable toggle, one in the questions save,
-    # one in the details save.
-    assert js.count("loadTypes().then") == 3
+    # one in the details save, one in the create flow, one in the duplicate.
+    assert js.count("loadTypes().then") == 5
     toggle = js.split('toggle.addEventListener("click"', 1)[1]
     # The row index is captured before the flight: the reload rebuilds every
     # row, so the landing spot must be computed from the table being replaced.
@@ -56,7 +56,7 @@ def test_saved_questions_reopen_on_the_row_they_belong_to():
     # questions button by name: a bare [aria-expanded] would match whichever
     # expandable button comes first in the stack.
     assert "'.actions-stack button[data-editor=" + chr(34) + "questions" + chr(34) + "]'" in teardown
-    assert js.count("loadTypes().then") == 3
+    assert js.count("loadTypes().then") == 5
 
 
 def test_question_move_buttons_name_the_question_they_move():
@@ -131,9 +131,58 @@ def test_details_editor_hands_the_keyboard_to_its_own_button():
     assert "'.actions-stack button[data-editor=" + chr(34) + "details" + chr(34) + "]'" in details
     questions = js.split("function openQuestionsEditor", 1)[1]
     assert "'.actions-stack button[data-editor=" + chr(34) + "questions" + chr(34) + "]'" in questions
-    # Toggle first, then the two editors, then Preview: the order the row
-    # reads in, and the order the handbacks assume.
+    # Toggle first, then the two editors, then Duplicate, then Preview: the
+    # order the row reads in, and the order the handbacks assume.
     build = js.split("async function loadTypes", 1)[1]
     order = [build.index("stack.appendChild(" + name + ");")
-             for name in ("toggle", "details", "edit", "preview")]
+             for name in ("toggle", "details", "edit", "dup", "preview")]
     assert order == sorted(order)
+
+
+def test_new_type_creates_with_a_slug_that_steals_no_address():
+    # The server writes slug pointers last-write-wins, so a create with a
+    # colliding slug would silently repoint another type's public page. The
+    # create uniquifies against every live slug AND alias before it flies.
+    js = _admin_js()
+    # The action lives in the section head, so it exists even on an empty
+    # list, where it is the only way forward.
+    assert 'head.appendChild(el("h2", "Event types"));' in js
+    create = js.split('create.addEventListener("click"', 1)[1]
+    preflight = create.split("await call(", 1)[0]
+    assert "taken.add(t.slug);" in js
+    assert "for (const a of t.aliases || []) taken.add(a);" in js
+    assert 'let slug = "new-meeting-type";' in preflight
+    assert "taken.has(slug)" in preflight
+    # The reload rebuilds the table, so an editor holding unsaved edits gets
+    # the same arm-to-discard chance as any other close.
+    assert "if (openEditor && !openEditor.requestClose()) return;" in preflight
+    assert '{ title: "New meeting type", slug }' in create
+    # A fresh type is a placeholder until it is named: the keyboard lands
+    # inside the new row's own details editor, in the title field.
+    success = create.split("loadTypes().then", 1)[1]
+    assert 'tr[data-id="${created.id}"]' in success
+    assert 'button[data-editor="details"]' in success
+    assert '.panel input' in success
+    assert "titleField.focus()" in success
+    # A failed create re-enables its button and speaks in the head note.
+    assert "create.disabled = false; create.focus();" in create
+    assert '"saved-note error visible"' in create
+
+
+def test_duplicate_copies_without_arming_and_aims_at_the_clone():
+    # A copy destroys nothing, so unlike the disable toggle it flies without
+    # an arm step. The post-reload keyboard lands on the clone's own row,
+    # found by id and not by index: where the clone sorts is the server's
+    # call, not the index the source row happened to sit at.
+    js = _admin_js()
+    assert "row.dataset.id = t.id;" in js
+    dup = js.split('dup.addEventListener("click"', 1)[1]
+    assert "action: \"duplicate\"" in dup
+    preflight = dup.split("dup.disabled = true", 1)[0]
+    assert "requestClose" in preflight
+    assert "dataset.armed" not in preflight
+    success = dup.split("loadTypes().then", 1)[1]
+    assert 'tr[data-id="${clone.id}"] .actions-stack button' in success
+    assert "dup.disabled = false; dup.focus();" in success
+    # A failed copy speaks beside the actions, one note per row.
+    assert '"saved-note error visible row-error"' in dup
