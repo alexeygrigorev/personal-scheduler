@@ -478,14 +478,15 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
         when = {**booking,
                 "start_iso": booking.get("start_iso") or booking.get("start", ""),
                 "end_iso": booking.get("end_iso") or booking.get("end", "")}
-        what_bits = []
+        # The receipt is a record someone archives: the session name leads at
+        # heading scale, the length trails as context instead of competing.
+        what_line = ""
         if booking.get("title"):
-            what_bits.append(str(booking["title"]) +
-                             (f" with {host_name}" if host_name else ""))
-        if booking.get("duration_min"):
-            what_bits.append(duration_label(int(booking["duration_min"])))
-        what_line = (f"<p class=\"detail-line\">{_esc(' · '.join(what_bits))}</p>"
-                     if what_bits else "")
+            title = str(booking["title"]) + (f" with {host_name}" if host_name else "")
+            dur = (f" <span class=\"what-duration\">· "
+                   f"{_esc(duration_label(int(booking['duration_min'])))}</span>"
+                   if booking.get("duration_min") else "")
+            what_line = f"<p class=\"detail-line what-line\">{_esc(title)}{dur}</p>"
         # Joining details travel with the receipt, not just the email: the
         # invitee who opens the receipt link later still needs the room.
         joining = (booking.get("conference", {}) or {}).get("link", "") \
@@ -495,7 +496,7 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
         joining_html = (f"<a class=\"join-link\" href=\"{_esc(joining)}\">{_esc(joining)}</a>"
                         if str(joining).startswith("http") else _esc(joining))
         body_inner = (f"<p class=\"detail-line\">{_human_when(when)}</p>"
-                      f"<p class=\"detail-line\">Joining: {joining_html}</p>"
+                      f"<p class=\"detail-line join-line\">Joining: {joining_html}</p>"
                       f"<p>The confirmation email carries your management link.</p>")
         # The management link itself cannot be rebuilt here (tokens are only
         # ever stored hashed), but the calendar file and the way back can.
