@@ -372,11 +372,31 @@
     };
   }
 
+  // rerender() rebuilds every card, so keyboard hosts would drop focus to the
+  // page after a move or a type switch. Only one editor is ever open, so the
+  // Nth .q-card in the document is the Nth question of this editor. A disabled
+  // destination (the up button of the first card) swallows focus(), so fall
+  // back to the question label instead of dropping focus to the page.
+  function refocusCard(index, sel) {
+    const card = document.querySelectorAll(".q-card")[index];
+    if (!card) return;
+    const target = card.querySelector(sel);
+    if (target && !target.disabled) { target.focus(); return; }
+    const fallback = card.querySelector("input");
+    if (fallback) fallback.focus();
+  }
+
   function questionCard(item, index, items, rerender) {
     const card = el("div");
     card.className = "q-card";
     const head = el("div");
     head.className = "q-card-head";
+    // Sighted hosts get the same "Question N" anchor the aria-labels speak,
+    // so a reorder is visible feedback, not a screen-reader-only event.
+    const chip = el("span", `Q${index + 1}`);
+    chip.className = "q-index";
+    chip.setAttribute("aria-hidden", "true");
+    head.appendChild(chip);
     const labelInput = el("input");
     labelInput.value = item.label;
     labelInput.placeholder = "Question visitors see";
@@ -387,7 +407,11 @@
     typeSelect.setAttribute("aria-label", `Question ${index + 1} answer type`);
     for (const [kind, name] of QUESTION_KINDS) typeSelect.appendChild(new Option(name, kind));
     typeSelect.value = item.type;
-    typeSelect.addEventListener("change", () => { item.type = typeSelect.value; rerender(); });
+    typeSelect.addEventListener("change", () => {
+      item.type = typeSelect.value;
+      rerender();
+      refocusCard(index, "select");
+    });
     head.appendChild(typeSelect);
     const required = el("label");
     required.className = "q-check";
@@ -448,6 +472,7 @@
     up.addEventListener("click", () => {
       [items[index - 1], items[index]] = [items[index], items[index - 1]];
       rerender();
+      refocusCard(index - 1, ".q-card-moves button:nth-child(1)");
     });
     const down = el("button", "↓");
     down.type = "button";
@@ -457,6 +482,7 @@
     down.addEventListener("click", () => {
       [items[index + 1], items[index]] = [items[index], items[index + 1]];
       rerender();
+      refocusCard(index + 1, ".q-card-moves button:nth-child(2)");
     });
     const remove = el("button", "Remove");
     remove.type = "button";
