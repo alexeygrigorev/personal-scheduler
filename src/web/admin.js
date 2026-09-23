@@ -779,6 +779,16 @@
       wrap.appendChild(lab);
       wrap.appendChild(input);
       wrap.appendChild(el("span", hint)).className = "hint";
+      // The failing field describes its own error, like the booking form:
+      // the verdict sits under the input, and typing withdraws the flag.
+      const fieldError = el("span");
+      fieldError.className = "error";
+      fieldError.setAttribute("role", "alert");
+      wrap.appendChild(fieldError);
+      input.addEventListener("input", () => {
+        input.removeAttribute("aria-invalid");
+        fieldError.textContent = "";
+      });
       form.appendChild(wrap);
     }
     const save = el("button", "Save settings");
@@ -787,15 +797,63 @@
     const note = el("span", "Saved");
     note.className = "saved-note";
     note.setAttribute("role", "status");
-    form.appendChild(save);
-    form.appendChild(note);
+    // Button and verdict live in a .form-actions flex row like every other
+    // form here: loose inline children would let a long verdict wrap around
+    // the button, splitting the sentence beside and below it.
+    const foot = el("div");
+    foot.className = "form-actions";
+    foot.append(save, note);
+    form.appendChild(foot);
+    // The same rules the server enforces, run first so the failing field is
+    // named on itself and focus lands on the first offender — the save never
+    // flies just to bounce. Blank stays legal: an empty notice address means
+    // "no notices", not a malformed one.
+    function isEmailAddress(value) {
+      return value.includes("@") && value.includes(".") && value.length <= 320;
+    }
+    const RULES = {
+      public_base_url: (v) => {
+        try { const u = new URL(v); return u.protocol === "http:" || u.protocol === "https:"; }
+        catch (err) { return false; }
+      },
+      contact_fallback: isEmailAddress,
+      host_notification_email: isEmailAddress,
+    };
     form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      save.disabled = true;
       note.classList.remove("error", "visible");
       note.setAttribute("role", "status");
+      fields.forEach(([name]) => {
+        const input = form.elements[name];
+        input.removeAttribute("aria-invalid");
+        input.closest(".field").querySelector(".error").textContent = "";
+      });
+      let firstBad = null;
+      const flag = (input, message) => {
+        input.setAttribute("aria-invalid", "true");
+        input.closest(".field").querySelector(".error").textContent = message;
+        firstBad = firstBad || input;
+      };
+      fields.forEach(([name]) => {
+        const rule = RULES[name];
+        if (!rule) return;
+        const value = form.elements[name].value.trim();
+        if (value && !rule(value)) {
+          flag(form.elements[name], name === "public_base_url"
+            ? "Enter a full address starting with https://."
+            : "Enter a valid email address.");
+        }
+      });
+      if (firstBad) {
+        firstBad.focus();
+        note.textContent = "Fix the highlighted fields.";
+        note.setAttribute("role", "alert");
+        note.classList.add("error", "visible");
+        return;
+      }
+      save.disabled = true;
       const payload = {};
-      fields.forEach(([name]) => { payload[name] = form.elements[name].value; });
+      fields.forEach(([name]) => { payload[name] = form.elements[name].value.trim(); });
       try {
         await call("/settings", { method: "PUT", body: JSON.stringify(payload) });
         settingsCache = null;
