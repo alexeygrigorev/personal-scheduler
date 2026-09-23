@@ -687,11 +687,18 @@
     fieldError(errIdFor(input), "");
   });
   // Choosing "Other" hands focus straight to the text field so the answer
-  // starts where the visitor's intent already is.
+  // starts where the visitor's intent already is. Typing there means Other —
+  // the radio checks itself, so an answer is never silently dropped just
+  // because the visitor skipped the radio.
   document.getElementById("details-form").addEventListener("change", (ev) => {
     if (!ev.target.matches("[data-other-radio]")) return;
     const otherInput = ev.target.closest(".choice-field").querySelector("[data-other-input]");
     if (otherInput) otherInput.focus();
+  });
+  document.getElementById("details-form").addEventListener("input", (ev) => {
+    if (!ev.target.matches("[data-other-input]") || ev.target.value.trim() === "") return;
+    const radio = ev.target.closest(".choice-field").querySelector("[data-other-radio]");
+    if (radio && !radio.checked) radio.checked = true;
   });
 
   const now = new Date();
