@@ -142,3 +142,35 @@ def test_admin_rejects_an_invalid_question_configuration(table):
     except ValueError:
         raised = True
     assert raised
+
+
+def test_duration_label_glues_its_unit_to_the_number():
+    # A wrapped duration range must never strand the unit alone on the next
+    # line ("... 30 min – 1" / "hour"): the number and its unit share a
+    # non-breaking space, so the label breaks as a whole or not at all.
+    assert "\u00a0" in render.duration_label(30)
+    assert render.duration_label(60) == "1\u00a0hour"
+    assert render.duration_label(90) == "1.5\u00a0hours"
+    body = render.booking_page(
+        {"slug": "x", "title": "T", "description": "",
+         "duration_mode": "selectable", "fixed_duration_min": None,
+         "allowed_durations": [30, 60], "questions": []},
+        "Alexey Grigorev")["body"]
+    assert "30&nbsp;" not in body  # the escape must be the real character path, not doubled
+    assert "1\u00a0hour" in body
+
+
+def test_duration_label_glues_its_unit_to_the_number():
+    # A wrapped duration range must never strand the unit alone on the next
+    # line ("... 30 min – 1" / "hour"): the number and its unit share a
+    # non-breaking space, so the label breaks as a whole or not at all.
+    assert "\u00a0" in render.duration_label(30)
+    assert render.duration_label(60) == "1\u00a0hour"
+    assert render.duration_label(90) == "1.5\u00a0hours"
+    body = render.booking_page(
+        {"slug": "x", "title": "T", "description": "",
+         "duration_mode": "selectable", "fixed_duration_min": None,
+         "allowed_durations": [30, 60], "questions": []},
+        "Alexey Grigorev")["body"]
+    assert "30&nbsp;" not in body  # the escape must be the real character path, not doubled
+    assert "1\u00a0hour" in body

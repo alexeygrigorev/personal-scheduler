@@ -145,10 +145,14 @@ def test_taken_slot_verdict_promises_only_what_remains():
     taken = js.split('data.error.code === "slot_unavailable"', 1)[1].split("if (!res.ok)", 1)[0]
     fresh_at = taken.find('querySelector("#time-list button")')
     assert fresh_at != -1
-    assert 0 < taken.find('setStatus("error"', fresh_at), "the branch on fresh slots must precede both texts"
-    assert taken.count("No open times left in ${monthName}") == 2
+    # the ask is branched on what the reload found, before either banner
+    # speaks it
+    assert 0 < taken.find('const ask = fresh', fresh_at)
+    assert "Pick a new time below." in taken
     assert "No open times left in ${monthName}" in taken
-    assert taken.count("try the next month") == 2
+    assert "try the next month" in taken
+    # both banners speak the one sentence; neither owns a private wording
+    assert taken.count("That time was just taken — your details are kept. ${ask}") == 2
     # with no slot to hand focus to, the verdict stays the keyboard anchor
     assert "else verdict.focus({ preventScroll: true });" in taken
 

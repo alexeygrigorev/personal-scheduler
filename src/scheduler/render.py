@@ -118,10 +118,12 @@ def notice(title, message, *, status=400, link=None, brand_name=None):
 
 
 def duration_label(minutes):
+    # Number and unit are glued with a non-breaking space: a wrapped label
+    # must never strand "hour" or "min" alone at the start of the next line.
     if minutes < 60:
-        return f"{minutes} min"
+        return f"{minutes}\u00a0min"
     hours = minutes / 60
-    return f"{int(hours)} hour" if hours == 1 else f"{hours:g} hours"
+    return f"{int(hours)}\u00a0hour" if hours == 1 else f"{hours:g}\u00a0hours"
 
 
 _LANDING_ICONS = ("video", "chat", "spark", "clock")
