@@ -274,6 +274,9 @@ main.landing {
   font-size: var(--fs-secondary); font-weight: 550;
   /* A stretched pill reads like a disabled input; hug the content. */
   align-self: flex-start;
+  /* A narrow cell must bend the column, not the pill: without this a
+   * squeezed "30 min" chip folds its unit onto a second line. */
+  white-space: nowrap;
 }
 .meta-chip svg { color: var(--muted); }
 /* A cell of several pills (admin Duration column): the row wraps between
