@@ -109,7 +109,7 @@
     $("month-label").textContent = state.month.toLocaleDateString([], { month: "long", year: "numeric", timeZone: "UTC" });
   }
 
-  function renderEmptyMonth(message) {
+  function renderEmptyMonth(message, retry = false) {
     timesHead.hidden = true;
     // Only renderDays would otherwise name the month, so an empty month (or a
     // failed availability load) left the nav arrows around a blank label.
@@ -120,7 +120,20 @@
     // only tells the visitor what to do next, so it stays plain and quiet.
     const cell = document.createElement("div");
     cell.className = "empty-cell";
-    cell.textContent = message || "Try another month, or use “Next available day”.";
+    if (retry) {
+      // A failure with no action to press invites a manual reload; put the
+      // retry where the explanation is, matching the admin sections' panel.
+      cell.className = "empty-cell with-action";
+      cell.textContent = message || "Availability could not be loaded.";
+      const retryBtn = document.createElement("button");
+      retryBtn.type = "button";
+      retryBtn.className = "btn secondary sm";
+      retryBtn.textContent = "Retry";
+      retryBtn.addEventListener("click", () => loadAvailability());
+      cell.appendChild(retryBtn);
+    } else {
+      cell.textContent = message || "Try another month, or use “Next available day”.";
+    }
     grid.appendChild(cell);
     renderTimes([]);
   }
@@ -141,7 +154,7 @@
       if (!res.ok) throw new Error((data.error && data.error.message) || "Unavailable");
     } catch (err) {
       setStatus("error", `Could not load times — ${why(err)}.`);
-      renderEmptyMonth("Availability could not be loaded.");
+      renderEmptyMonth("Availability could not be loaded.", true);
       return;
     }
     const byDay = {};

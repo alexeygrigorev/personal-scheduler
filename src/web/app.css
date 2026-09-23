@@ -374,6 +374,8 @@ textarea { width: 100%; resize: vertical; }
   color: var(--muted); font-size: var(--fs-secondary);
   background: transparent;
 }
+/* A failed availability load offers its recovery action under the explanation. */
+.day-grid .empty-cell.with-action { flex-direction: column; gap: 0.75rem; }
 .day-grid button[disabled] { cursor: default; color: var(--faint); }
 .day-grid button[aria-pressed] {
   background: var(--surface); border-color: var(--line-strong);
