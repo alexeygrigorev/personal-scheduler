@@ -397,12 +397,17 @@
         // about and read as if the new slot were suspect too.
         const verdict = document.getElementById("times-verdict");
         if (verdict) verdict.remove();
-        // The banner above the grid carried the same alarm as an assertive
-        // alert; once its ask is fulfilled it must step down to a calm
-        // confirmation instead of shouting a stale error over the visitor's
-        // new choice. Other statuses (day counts, load failures) stay.
+        // Banners above the grid speak for one attempt: the taken-slot
+        // verdict's ask is fulfilled by the pick itself, and a "could not
+        // confirm" error describes the previous submission — left up, both
+        // read as if the new slot were suspect too. Once a pick lands they
+        // step down to a calm confirmation. Other statuses (day counts,
+        // load failures, a reconciling booking's do-not-rebook warning)
+        // are still live and stay.
         const statusText = document.querySelector("#booking-status .status-text");
-        if (statusText && statusText.textContent.includes("just taken")) {
+        if (statusText &&
+            (statusText.textContent.includes("just taken") ||
+             statusText.textContent.startsWith("Could not confirm"))) {
           setStatus("", "Time picked — confirm your details below.");
         }
         renderTimes(slots, { restoreFocus: true });
