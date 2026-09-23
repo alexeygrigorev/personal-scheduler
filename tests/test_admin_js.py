@@ -274,3 +274,13 @@ def test_a_rejected_address_flags_the_slug_field_itself():
     assert "slugInput.focus();" in catch
     assert 'note.textContent = "Fix the highlighted fields."' in catch
     assert "Could not save —" in catch
+
+
+def test_print_drops_the_console_tab_bar():
+    # The section switcher is screen chrome, and its pressed-tab highlight
+    # prints as a meaningless purple word on paper. The sheet keeps the
+    # types and their details, not the console's navigation.
+    css = (render.WEB_DIR / "app.css").read_text()
+    print_block = css.split("@media print {", 1)[1].split("forced colors", 1)[0]
+    assert ".tabs { display: none !important; }" in print_block
+

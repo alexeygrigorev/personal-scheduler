@@ -1142,7 +1142,10 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
    * page on paper; the sheet needs neither. */
   body { display: block; min-height: 0; color: #000; }
   .site-head, .site-foot, .skip,
-  .form-actions, .action-card, .btn, .status { display: none !important; }
+  .form-actions, .action-card, .btn, .status,
+  /* The console's section switcher is screen chrome, and its pressed-tab
+     highlight prints as a meaningless purple word on paper. */
+  .tabs { display: none !important; }
   main.wrap { padding: 0; }
   a { color: inherit; }
   .panel, .centerpiece { box-shadow: none; break-inside: avoid; }
