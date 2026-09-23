@@ -964,6 +964,48 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   .tabs button { flex: 1 1 40%; }
 }
 
+/* ---------- touch ---------- */
+
+/* A touch pointer never hovers, but a tap emulates one — and the emulated
+ * :hover then sticks to the tapped control. Card lifts, button glows, and
+ * the day/time washes would read as a phantom pre-selection until the next
+ * tap lands elsewhere. Touch + pen pointers get the resting styles back;
+ * (hover: hover) pointers keep every effect above. Selected and armed
+ * states keep their filled looks: their own rules outrank these. */
+@media (hover: none) {
+  .btn:hover {
+    background: linear-gradient(180deg, #5b52ee 0%, var(--accent) 100%);
+    transform: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(22, 35, 59, 0.18);
+  }
+  .card .btn:hover::after { transform: none; }
+  .btn.secondary:hover { background: var(--surface); border-color: var(--line-strong); box-shadow: 0 1px 2px rgba(22, 35, 59, 0.05); }
+  .btn.danger:hover { background: var(--surface); border-color: var(--danger-border); color: var(--danger); box-shadow: 0 1px 2px rgba(22, 35, 59, 0.05); }
+  .btn.ghost:hover { background: transparent; color: var(--accent); }
+  .card:hover { border-color: var(--line); box-shadow: var(--shadow-card); transform: none; }
+  .stat:hover { border-color: var(--line); box-shadow: var(--shadow-card); }
+  .segmented label:hover { border-color: var(--line-strong); background: var(--surface); }
+  .segmented label:has(input:checked):hover { background: linear-gradient(180deg, #5b52ee, var(--accent)); }
+  .icon-btn:hover { background: var(--surface); border-color: var(--line-strong); }
+  .icon-btn[disabled]:hover { background: transparent; border-color: var(--line); }
+  .day-grid button[aria-pressed]:hover {
+    border-color: var(--line-strong); background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 2px rgba(22, 35, 59, 0.05);
+  }
+  .day-grid button.today[aria-pressed]:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .day-grid button[aria-pressed="true"]:hover {
+    background: linear-gradient(180deg, #5b52ee, var(--accent)); color: #fff;
+  }
+  .times button:hover { background: var(--surface); border-color: var(--accent-border); }
+  .times button[aria-pressed="true"]:hover {
+    background: linear-gradient(180deg, #5b52ee, var(--accent)); border-color: var(--accent); color: #fff;
+  }
+  select:hover, input:hover, textarea:hover { border-color: var(--line-strong); }
+  .tabs button:hover { background: transparent; color: var(--muted); }
+  table.admin tbody tr:hover { background: transparent; }
+  .q-editor .q-card-moves .btn.danger:hover { background: transparent; border-color: var(--line); }
+}
+
 /* ---------- print ---------- */
 
 /* The receipt family is the page people print or save as PDF: the sheet
