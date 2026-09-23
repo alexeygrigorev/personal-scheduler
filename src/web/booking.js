@@ -178,17 +178,7 @@
       retryBtn.className = "btn secondary sm";
       retryBtn.textContent = "Retry";
       retryBtn.addEventListener("click", () => {
-        loadAvailability().then(() => {
-          // Whichever way the retry lands, keyboard focus stays in the grid:
-          // the fresh Retry button on another failure, the picked day (or the
-          // first bookable one) on success, the empty-month guidance when
-          // success finds nothing bookable.
-          const again = document.querySelector(".empty-cell.with-action button");
-          const day = document.querySelector('#day-grid button[aria-pressed="true"]')
-            || document.querySelector("#day-grid button[data-day]");
-          const target = again || day || document.querySelector("#day-grid .empty-cell");
-          if (target) target.focus({ preventScroll: true });
-        });
+        loadAvailability().then(focusAfterJump);
       });
       cell.appendChild(retryBtn);
     } else {
@@ -205,6 +195,19 @@
   // must win, not whichever was asked for last but answered first. Each
   // load tags itself, and only the newest tag may touch the grid.
   let loadSeq = 0;
+
+  // Whichever way a month jump or a retry lands, keyboard focus stays in
+  // the grid: the fresh Retry button on another failure, the picked day (or
+  // the first bookable one) on success, the empty-month guidance when
+  // success finds nothing bookable. Without the handback the keyboard lands
+  // on <body>, a spectator to the state it just asked for.
+  function focusAfterJump() {
+    const again = document.querySelector(".empty-cell.with-action button");
+    const day = document.querySelector('#day-grid button[aria-pressed="true"]')
+      || document.querySelector("#day-grid button[data-day]");
+    const target = again || day || document.querySelector("#day-grid .empty-cell");
+    if (target) target.focus({ preventScroll: true });
+  }
 
   function setNavLoading(busy) {
     $("next-month").disabled = busy;
@@ -754,16 +757,17 @@
         return;
       }
       // Already on this month's last open day: "next" is the next month,
-      // whose first open day loadAvailability() selects on arrival.
+      // whose first open day loadAvailability() selects on arrival and the
+      // handback anchors the keyboard on.
       const m = new Date(state.month);
       m.setUTCMonth(m.getUTCMonth() + 1);
       state.month = m;
-      loadAvailability();
+      loadAvailability().then(focusAfterJump);
     } else {
       const m = new Date(state.month);
       m.setUTCMonth(m.getUTCMonth() + 1);
       state.month = m;
-      loadAvailability();
+      loadAvailability().then(focusAfterJump);
     }
   }
 
@@ -869,10 +873,10 @@
     updateSummary();
   });
   $("prev-month").addEventListener("click", () => {
-    const m = new Date(state.month); m.setUTCMonth(m.getUTCMonth() - 1); state.month = m; loadAvailability();
+    const m = new Date(state.month); m.setUTCMonth(m.getUTCMonth() - 1); state.month = m; loadAvailability().then(focusAfterJump);
   });
   $("next-month").addEventListener("click", () => {
-    const m = new Date(state.month); m.setUTCMonth(m.getUTCMonth() + 1); state.month = m; loadAvailability();
+    const m = new Date(state.month); m.setUTCMonth(m.getUTCMonth() + 1); state.month = m; loadAvailability().then(focusAfterJump);
   });
   $("next-day").addEventListener("click", nextAvailableDay);
   $("details-form").addEventListener("submit", submitBooking);
