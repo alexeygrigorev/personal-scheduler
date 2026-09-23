@@ -114,6 +114,17 @@ h2 { font-size: var(--fs-h2); line-height: 1.35; margin: 0 0 0.375rem; font-weig
 p { margin: 0.5rem 0; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 a:hover { color: var(--accent-strong); }
+
+/* Event titles, host names, and emails are typed input, and one long token
+ * bleeds past its card and under the neighbor instead of scrolling the page.
+ * anywhere, not break-word: break-word leaves min-content widths — and with
+ * them the card, grid, and table track sizes — inflated. Fixed copy never
+ * reaches the threshold, so it never breaks mid-word. */
+h1, h2,
+.hero .intro, .card .desc, .info-desc, .info-panel .host-name,
+.page-intro .sub, .manage-sub, .manage-answers .q,
+.summary-card .sum-line, .centerpiece p, .next-booking-row,
+table.admin td { overflow-wrap: anywhere; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
