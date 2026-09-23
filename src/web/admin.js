@@ -223,7 +223,15 @@
       note.className = "saved-note";
       try {
         await call("/settings", { method: "PUT", body: JSON.stringify({ pause_new_bookings: !data.paused }) });
-        loadOverview();
+        // Success rebuilds the whole section, so the pressed button is gone
+        // and a keyboard admin would land on <body> right after the state
+        // they asked for. The fresh toggle is the same control with the
+        // flipped label — put them back on it (and on a failed refetch the
+        // old button never left, so re-enable and hold it there).
+        loadOverview().then(() => {
+          const again = document.querySelector("#overview .panel-head .btn");
+          if (again) again.focus();
+        }, () => { btn.disabled = false; btn.focus(); });
       } catch (err) {
         btn.disabled = false;
         // Disabling the focused button dropped the keyboard to the body;
@@ -340,6 +348,10 @@
         }
         disarm();
         toggle.disabled = true;
+        // Where this row sits in the table: the reload rebuilds every row,
+        // and the keyboard must land on the rebuilt row's own toggle, not
+        // the top of the document.
+        const rowIndex = [...tbody.children].indexOf(row);
         try {
           await call(`/event-types/${t.id}`, {
             method: "PUT",
@@ -348,7 +360,10 @@
               expected_version: t.version,
             }),
           });
-          loadTypes();
+          const againIn = () => document.querySelectorAll("#types tbody tr")[rowIndex]
+            ?.querySelector(".actions-stack button");
+          loadTypes().then(() => { const again = againIn(); if (again) again.focus(); },
+            () => { toggle.disabled = false; toggle.focus(); });
         } catch (err) {
           toggle.disabled = false;
           // Disabling the focused button dropped the keyboard to the body;
@@ -573,6 +588,10 @@
   }
 
   function openQuestionsEditor(t, hostRow) {
+    // The row's position among the type rows: the post-save reload rebuilds
+    // the table, and the keyboard must land back on this row's Questions
+    // toggle (now collapsed) instead of the top of the document.
+    const rowIndex = [...hostRow.parentNode.children].indexOf(hostRow);
     const editorRow = el("tr");
     const cell = el("td");
     cell.colSpan = 5;
@@ -699,7 +718,12 @@
           note.classList.remove("visible");
           if (openEditor && openEditor.editorRow === editorRow) {
             closeEditor();
-            loadTypes();
+            // The reload replaced every row; the saved editor's own
+            // Questions button is where a keyboard admin continues.
+            const againIn = () => document.querySelectorAll("#types tbody tr")[rowIndex]
+              ?.querySelector('.actions-stack button[aria-expanded]');
+            loadTypes().then(() => { const again = againIn(); if (again) again.focus(); },
+              () => { const again = againIn(); if (again) again.focus(); });
           }
         }, 900);
       } catch (err) {
@@ -790,12 +814,19 @@
           return;
         }
         cancel.disabled = true;
+        // Same handback as the types table: the reload rebuilds every row,
+        // so the keyboard continues on the rebuilt row's own action instead
+        // of falling off the page.
+        const rowIndex = [...tbody.children].indexOf(row);
         try {
           await call(`/bookings/${b.id}/cancel`, {
             method: "POST",
             body: JSON.stringify({ revision: b.revision, idempotency_key: crypto.randomUUID() }),
           });
-          loadBookings();
+          const againIn = () => document.querySelectorAll("#bookings tbody tr")[rowIndex]
+            ?.querySelector(".actions-stack button");
+          loadBookings().then(() => { const again = againIn(); if (again) again.focus(); },
+            () => { cancel.disabled = false; cancel.focus(); });
         } catch (err) {
           disarm();
           cancel.disabled = false;
