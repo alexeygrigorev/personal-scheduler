@@ -255,11 +255,13 @@
       const raw = document.getElementById("resched-start").value;
       if (!raw) {
         setStatus("error", "Pick a start time first.");
+        revealStatus();
         startInput.focus();
         return;
       }
       if (isPast(raw)) {
         setStatus("error", "That start is in the past. Pick a later time and try again.");
+        revealStatus();
         startInput.focus();
         return;
       }
