@@ -33,3 +33,39 @@ def test_time_pick_scrolls_only_when_the_form_is_off_screen():
     assert "alreadyInView" in guard
     call = js.split("if (!alreadyInView)", 1)[1].split("}", 1)[0]
     assert 'block: "start"' in call
+
+
+def test_the_taken_retry_focus_lands_visibly():
+    # The retry parks focus on the first fresh slot, but a focus() riding a
+    # click response never matches :focus-visible — the landing would be
+    # invisible to the sighted keyboard user the scroll just carried away.
+    # The hint class borrows the keyboard ring for exactly this landing, and
+    # the empty-month fallback keeps its own ink on the verdict.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    landing = js.split("if (fresh) {", 1)[1].split("else verdict.focus", 1)[0]
+    assert 'fresh.classList.add("focus-hint")' in landing
+    assert "fresh.focus({ preventScroll: true })" in landing
+    css = (render.WEB_DIR / "app.css").read_text()
+    assert ".times button.focus-hint:focus" in css
+    # The two programmatic landings that used to mute the ring entirely.
+    assert ".times-verdict:focus, .times-verdict:focus-visible { outline: 2px solid currentColor" in css
+    assert ".status:focus, .status:focus-visible { outline: 2px solid currentColor" in css
+    assert "outline: none; }" not in css.split(".times-verdict", 1)[1].split(".details-panel-inner", 1)[0]
+
+
+def test_the_taken_retry_focus_lands_visibly():
+    # The retry parks focus on the first fresh slot, but a focus() riding a
+    # click response never matches :focus-visible — the landing would be
+    # invisible to the sighted keyboard user the scroll just carried away.
+    # The hint class borrows the keyboard ring for exactly this landing, and
+    # the empty-month fallback keeps its own ink on the verdict.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    landing = js.split("if (fresh) {", 1)[1].split("else verdict.focus", 1)[0]
+    assert 'fresh.classList.add("focus-hint")' in landing
+    assert "fresh.focus({ preventScroll: true })" in landing
+    css = (render.WEB_DIR / "app.css").read_text()
+    assert ".times button.focus-hint:focus" in css
+    # The two programmatic landings that used to mute the ring entirely.
+    assert ".times-verdict:focus, .times-verdict:focus-visible { outline: 2px solid currentColor" in css
+    assert ".status:focus, .status:focus-visible { outline: 2px solid currentColor" in css
+    assert "outline: none; }" not in css.split(".times-verdict", 1)[1].split(".details-panel-inner", 1)[0]

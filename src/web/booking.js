@@ -676,7 +676,14 @@
         // Focus stayed on Confirm, which the scroll just carried off-screen on
         // a phone; the first open slot is where picking continues. With no
         // fresh slot to take focus, the verdict is the thing to read next.
-        if (fresh) fresh.focus({ preventScroll: true });
+        if (fresh) {
+          // A focus() riding a click response never matches :focus-visible,
+          // so the slot would take focus invisibly; the hint class borrows
+          // the keyboard ring for this landing. It only ever styles while
+          // focused, so it can safely outlive the pick it announced.
+          fresh.classList.add("focus-hint");
+          fresh.focus({ preventScroll: true });
+        }
         else verdict.focus({ preventScroll: true });
         return;
       }

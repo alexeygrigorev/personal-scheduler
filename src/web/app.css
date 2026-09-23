@@ -443,6 +443,10 @@ textarea { width: 100%; resize: vertical; }
 }
 .times button:hover { background: var(--accent-soft); border-color: var(--accent); }
 .times button:active { background: var(--accent-soft); }
+/* The taken-slot retry parks focus on the first fresh slot; a click-borne
+ * focus() never matches :focus-visible, so this landing needs its own ring
+ * or the scroll leaves keyboard users stranded mid-page with no anchor. */
+.times button.focus-hint:focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .times button[aria-pressed="true"] {
   background: linear-gradient(180deg, #5b52ee, var(--accent));
   border-color: var(--accent); color: #fff;
@@ -466,8 +470,10 @@ textarea { width: 100%; resize: vertical; }
   background: var(--danger-soft); border: 1px solid var(--danger-border);
   color: var(--danger-strong); font-size: var(--fs-secondary); font-weight: 550;
 }
-/* Only ever focused programmatically (the no-fresh-slot fallback), like .status. */
-.times-verdict:focus, .times-verdict:focus-visible { outline: none; }
+/* Only ever focused programmatically (the no-fresh-slot fallback), like
+ * .status. A landing nobody can see is no landing at all: the ring wears the
+ * banner's own ink so it reads as part of the alarm, not browser chrome. */
+.times-verdict:focus, .times-verdict:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 /* The details panel opens with the same heading language, but as its first
  * row the separator and offset would double the panel's own padding. */
 .details-panel-inner .details-head { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -480,8 +486,10 @@ textarea { width: 100%; resize: vertical; }
   font-size: var(--fs-secondary);
   min-height: 1.5rem;
 }
-/* Only ever focused programmatically (outcome scroll), never tabbed to. */
-.status:focus, .status:focus-visible { outline: none; }
+/* Only ever focused programmatically (outcome scroll), never tabbed to. The
+ * ring wears the banner's own ink, like the verdict's, so the landing is
+ * visible without reading as browser chrome. */
+.status:focus, .status:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .status svg { flex: none; margin-top: 0.125rem; color: var(--faint); display: none; }
 .status:not(.error):not(.ok) .s-info { display: block; }
 .status.error, .status.ok { padding: 0.625rem 0.875rem; min-height: 2.75rem; }
