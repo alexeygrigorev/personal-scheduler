@@ -500,16 +500,19 @@
       const day = new Date(state.selectedStart).toLocaleDateString([], {
         weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: state.timezone,
       });
-      // The range and the duration travel as one unit each — separators ride
-      // inside so a break lands between chunks, never inside "30 min". The
-      // zone chunk wraps: a long name gives before the offset does.
+      // The range and the duration travel as one unit each — their joins
+      // are no-break spaces, and the separator rides inside so a break
+      // lands between chunks, never inside "30 min". The zone chunk wraps
+      // at its own slashes and underscores (zero-width breaks), since the
+      // card's anywhere rule would otherwise split it after any letter.
       const part = (className, textContent) =>
         Object.assign(document.createElement("span"), { className, textContent });
+      const nb = (s) => s.replaceAll(" ", "\u00A0");
       const line = part("sum-line", "");
       line.append(
-        part("sum-when", `${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)} · `),
-        part("sum-dur", `${fmtDuration(state.duration)} · `),
-        part("sum-zone", `${state.timezone} (${zoneOffsetLabel(state.selectedStart)})`),
+        part("sum-when", `${nb(`${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)} ·`)} `),
+        part("sum-dur", `${nb(`${fmtDuration(state.duration)} ·`)} `),
+        part("sum-zone", `${state.timezone.replace(/([/_])/g, "$1\u200B")} (${zoneOffsetLabel(state.selectedStart)})`),
       );
       el.replaceChildren(part("sum-line strong", day), line);
     } else {

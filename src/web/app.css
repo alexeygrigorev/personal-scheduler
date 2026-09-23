@@ -573,6 +573,13 @@ textarea { width: 100%; resize: vertical; }
 .summary-card .sum-line { display: block; }
 .summary-card .sum-line.strong { font-weight: 700; font-size: var(--fs-body); color: var(--ink); }
 .summary-card .sum-line + .sum-line { margin-top: 0.125rem; font-weight: 550; }
+/* The range and the duration each travel as one unit: plain text let a
+   phone line break "30 min" between the number and its unit. Their joins
+   are no-break spaces, so the card's anywhere rule only emergency-breaks
+   them when they alone outgrow the card — never sideways. The zone keeps
+   normal wrapping and breaks at its own slashes: anywhere would split
+   "Europe/Berlin" after any letter. */
+.summary-card .sum-zone { overflow-wrap: normal; }
 
 .field { margin: 0 0 1rem; }
 .field label { display: block; font-weight: 600; font-size: var(--fs-secondary); margin-bottom: 0.375rem; }
