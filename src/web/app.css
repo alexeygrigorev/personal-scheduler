@@ -1259,4 +1259,19 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   .day-grid button.today[aria-pressed="true"]:hover {
     outline: 2px solid Highlight;
   }
+  /* The combobox reads its two states from fills too: the keyboard row's
+   * soft background vanishes and the picked zone's accent text collapses
+   * to CanvasText. The active row gets the same inset Highlight ring as
+   * a pressed day; the picked zone gets a check mark in a reserved
+   * gutter, the one selection mark Windows High Contrast keeps honest. */
+  .tz-row { position: relative; padding-left: 1.875rem; }
+  .tz-row::before {
+    content: "";
+    position: absolute; left: 0.625rem; top: 50%; translate: 0 -50%;
+  }
+  .tz-row[aria-selected="true"]::before { content: "✓"; }
+  .tz-row.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
