@@ -248,8 +248,14 @@ def validate_questions(questions) -> list[str]:
 def validate_host(fields) -> list[str]:
     """Config-side gate for host settings: a malformed URL or email must fail
     the admin save, not silently become the schedule's public face or the
-    reply-to address on every calendar email."""
+    reply-to address on every calendar email. An empty display name fails
+    too — blank is not "no name", it is every public page losing its host."""
     errors: list[str] = []
+    name = str(fields.get("display_name") or "").strip()
+    if not name:
+        errors.append("display_name: is required")
+    elif len(name) > 200:
+        errors.append("display_name: is too long (max 200)")
     base = str(fields.get("public_base_url") or "").strip()
     if base:
         parts = urllib.parse.urlsplit(base)

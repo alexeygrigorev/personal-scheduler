@@ -953,8 +953,15 @@
       };
       fields.forEach(([name]) => {
         const rule = RULES[name];
-        if (!rule) return;
         const value = form.elements[name].value.trim();
+        // The host's name is the one required setting: blank is not "no
+        // name", it is every public page losing its host. The booking
+        // form's own words keep the grammar one voice across surfaces.
+        if (name === "display_name") {
+          if (!value) flag(form.elements[name], "This field is required.");
+          return;
+        }
+        if (!rule) return;
         if (value && !rule(value)) {
           flag(form.elements[name], name === "public_base_url"
             ? "Enter a full address starting with https://."

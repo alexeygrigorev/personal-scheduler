@@ -330,3 +330,23 @@ def test_settings_save_accepts_valid_values_and_blank_stays_legal(live):
     host = json.loads(ok["body"])["host"]
     assert host["public_base_url"] == "https://scheduler.example"
     assert host["host_notification_email"] == "notices@datatalks.club"
+
+
+def test_settings_save_refuses_an_empty_display_name(live):
+    # A blank display name is not "no name": the host would silently
+    # vanish from the landing and booking pages while the admin reads a
+    # green "Saved". The save must bounce and name the field.
+    cookies = [admin_session("host@datatalks.club")]
+    bad = call(admin_handler.lambda_handler, "/admin/api/settings",
+               method="PUT", cookies=cookies,
+               body={"display_name": "   ",
+                     "public_base_url": "https://scheduler.example",
+                     "contact_fallback": "alexey@datatalks.club",
+                     "host_notification_email": "notices@datatalks.club"})
+    assert bad.statusCode == 422
+    payload = json.loads(bad["body"])
+    assert payload["error"]["code"] == "invalid_input"
+    assert "display_name" in payload["error"]["message"]
+    stored = json.loads(call(admin_handler.lambda_handler, "/admin/api/settings",
+                             cookies=cookies)["body"])["host"]
+    assert (stored.get("display_name") or "").strip() != ""
