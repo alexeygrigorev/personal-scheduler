@@ -390,9 +390,14 @@
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         // "start", not "nearest": on a phone the form is a tall block below
         // the times, and nearest lands on its bottom edge with the summary
-        // and first fields off-screen. On desktop the sticky panel is already
-        // in view, so this is a no-op there.
-        formWrap.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+        // and first fields off-screen. The heading, not the form body, is
+        // the anchor — the body's edge parked the heading under the sticky
+        // site head, clipping it; the heading carries the [id] scroll margin,
+        // so it stops below the bar with the summary and first fields still
+        // on screen. On desktop the sticky panel is already in view, so this
+        // stays a no-op there.
+        const detailsAnchor = document.getElementById("details-head") || formWrap;
+        detailsAnchor.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
       });
       li.appendChild(btn);
       list.appendChild(li);

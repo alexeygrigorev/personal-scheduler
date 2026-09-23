@@ -301,7 +301,7 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 </section>
 <section class="details-panel" aria-label="Your details">
 <div class="panel details-panel-inner">
-<div class="times-head details-head"><h2>Your details</h2></div>
+<div class="times-head details-head" id="details-head"><h2>Your details</h2></div>
 <div class="placeholder" id="details-placeholder">
 {icon('calendar', 'ic')}
 <p>No time selected yet.<br>Pick a day and a time to continue.</p>
