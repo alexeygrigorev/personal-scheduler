@@ -795,6 +795,25 @@
   // intent already is. Typing there means Other — the radio checks itself,
   // so an answer is never silently dropped just because the visitor skipped
   // the radio.
+  // Whether picking Other also hands off focus is a question of intent.
+  // Pointer picks and a deliberate Space are aim; Chrome additionally fires
+  // a trusted click for arrow-key navigation, so riding click would strand
+  // the walk mid-group. Mark the aiming gestures and hand off from change —
+  // which opens the field — so focus lands after the reveal, never on a
+  // still-hidden input.
+  let pickedOther = null;
+  let pickedOtherAt = 0;
+  document.getElementById("details-form").addEventListener("pointerdown", (ev) => {
+    const radio = (ev.target.matches?.("input[type=radio][data-other-radio]") && ev.target)
+      || ev.target.closest?.("label")?.querySelector("[data-other-radio]");
+    if (radio) { pickedOther = radio; pickedOtherAt = ev.timeStamp; }
+  }, true);
+  document.getElementById("details-form").addEventListener("keydown", (ev) => {
+    if ((ev.key === " " || ev.key === "Spacebar")
+        && ev.target.matches("input[type=radio][data-other-radio]")) {
+      pickedOther = ev.target; pickedOtherAt = ev.timeStamp;
+    }
+  }, true);
   document.getElementById("details-form").addEventListener("change", (ev) => {
     if (!ev.target.matches("input[type=radio][data-question]")) return;
     const field = ev.target.closest(".choice-field");
@@ -802,20 +821,10 @@
     field.removeAttribute("aria-invalid");
     field.classList.toggle("other-open",
       !!field.querySelector("[data-other-radio]:checked"));
-  });
-  // The focus hand-off belongs to real activation only: a click accompanies
-  // pointer picks and deliberate Enter/Space, but an arrow-key pick fires
-  // change alone — yanking focus there would strand the radio walk mid-group
-  // with the wrap unreachable.
-  document.getElementById("details-form").addEventListener("click", (ev) => {
-    if (!ev.target.matches("input[type=radio][data-other-radio]")) return;
-    // The field is opened in change, which fires after this click's default
-    // action — deferring lands the focus after the reveal, since focus()
-    // on a still-hidden field is a silent no-op.
-    setTimeout(() => {
-      const otherInput = ev.target.closest(".choice-field")?.querySelector("[data-other-input]");
-      if (otherInput) otherInput.focus();
-    });
+    if (ev.target !== pickedOther || ev.timeStamp - pickedOtherAt > 750) return;
+    pickedOther = null;
+    const otherInput = field.querySelector("[data-other-input]");
+    if (otherInput) otherInput.focus();
   });
   document.querySelectorAll(".choice-field").forEach((field) => {
     field.classList.toggle("other-open",
