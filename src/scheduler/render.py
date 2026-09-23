@@ -546,10 +546,12 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
         # heading scale, the length trails as context instead of competing.
         what_line = ""
         if booking.get("title"):
-            # The host phrase is one unbreakable unit, so the heading's line
-            # break lands after the session name instead of stranding "with"
-            # at the end of a line.
-            host_phrase = (f" <span class=\"what-host\">with {_esc(host_name)}</span>"
+            # The no-break space glues "with" to the name's first word, so a
+            # line break never strands "with" at a line's end; the name itself
+            # stays wrappable, because a nowrap phrase longer than the sheet
+            # (long honorifics, hyphenated surnames) would drag the card past
+            # the viewport instead of breaking.
+            host_phrase = (f" <span class=\"what-host\">with&nbsp;{_esc(host_name)}</span>"
                            if host_name else "")
             dur = (f" <span class=\"what-duration\">· "
                    f"{_esc(duration_label(int(booking['duration_min'])))}</span>"

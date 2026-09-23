@@ -59,6 +59,20 @@ def test_receipt_offers_print():
     assert 'class="btn secondary"' in resp["body"]
 
 
+def test_receipt_host_phrase_stays_glued_but_breakable():
+    # "with" must never sit stranded at a line's end, so the markup glues it
+    # to the name with a no-break space. The name itself must stay wrappable:
+    # a nowrap phrase longer than the sheet (long honorifics, hyphenated
+    # surnames) ignores overflow-wrap entirely and would drag the card past
+    # a narrow viewport instead of breaking.
+    resp = _receipt({"link": "https://meet.example.com/bk-0f41"})
+    assert "with&nbsp;Alexey Grigorev" in resp["body"]
+    css = (render.WEB_DIR / "app.css").read_text()
+    rule = css.split(".centerpiece .what-host", 1)[1].split("}", 1)[0]
+    assert "nowrap" not in rule
+    assert "overflow-wrap: anywhere" in rule
+
+
 def test_print_stylesheet_strips_the_sheet_to_the_record():
     # The print button promises a clean sheet; the stylesheet has to back
     # that by hiding chrome and action rows on paper.

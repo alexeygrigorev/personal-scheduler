@@ -800,7 +800,11 @@ main.centered .centerpiece { margin: auto; }
 .centerpiece p { color: var(--muted); text-wrap: pretty; }
 .centerpiece .detail-line { color: var(--ink); font-weight: 600; text-wrap: balance; }
 .centerpiece .what-line { font-size: var(--fs-h2); }
-.centerpiece .what-host { white-space: nowrap; }
+/* The "with NAME" glue lives in the markup (a no-break space): a nowrap span
+ * ignores overflow-wrap entirely, so a host name longer than the sheet would
+ * overflow instead of wrapping. `anywhere` stays as the single-word emergency
+ * break (a glued first word plus a very long surname token). */
+.centerpiece .what-host { overflow-wrap: anywhere; }
 .centerpiece .what-duration { color: var(--muted); font-weight: 550; font-size: var(--fs-body); }
 /* "Joining:" is a prose lead-in; the URL is reference data, so the line
  * reads at prose weight and the secondary-size link stays the payload. */
