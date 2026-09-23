@@ -791,8 +791,14 @@
     field.removeAttribute("aria-invalid");
     field.classList.toggle("other-open",
       !!field.querySelector("[data-other-radio]:checked"));
-    if (!ev.target.matches("[data-other-radio]")) return;
-    const otherInput = field.querySelector("[data-other-input]");
+  });
+  // The focus hand-off belongs to real activation only: a click accompanies
+  // pointer picks and deliberate Enter/Space, but an arrow-key pick fires
+  // change alone — yanking focus there would strand the radio walk mid-group
+  // with the wrap unreachable.
+  document.getElementById("details-form").addEventListener("click", (ev) => {
+    if (!ev.target.matches("input[type=radio][data-other-radio]")) return;
+    const otherInput = ev.target.closest(".choice-field")?.querySelector("[data-other-input]");
     if (otherInput) otherInput.focus();
   });
   document.querySelectorAll(".choice-field").forEach((field) => {
