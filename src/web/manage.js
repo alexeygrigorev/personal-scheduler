@@ -10,7 +10,17 @@
   const token = cfg.token;
 
   const statusEl = document.getElementById("manage-status");
-  function setStatus(kind, text) {
+  // The page loads with a standing guidance sentence in this box; verdicts
+  // borrow it and hand it back when they no longer hold.
+  const standingNote = statusEl.querySelector(".status-text").textContent;
+  // A reschedule verdict describes the start as it was submitted, so it owns
+  // this box only until the visitor edits that field — a banner still saying
+  // "in the past" above a corrected future time argues with the picker.
+  // Cancel and pending messages are nobody's complaint about the picker and
+  // retire only through their own flows.
+  let reschedVerdict = false;
+  function setStatus(kind, text, owner) {
+    reschedVerdict = kind === "error" && owner === "resched";
     statusEl.className = "status" + (kind ? " " + kind : "");
     // Failed actions announce assertively, like every other status box here.
     statusEl.setAttribute("role", kind === "error" ? "alert" : "status");
@@ -113,7 +123,7 @@
       // crafted server messages already read as sentences and pass through.
       setStatus("error", err.message === "Failed to fetch"
         ? "The server could not be reached. Check your connection and try again."
-        : err.message);
+        : err.message, action === "reschedule" ? "resched" : "");
       revealStatus();
     }
   }
@@ -252,13 +262,20 @@
       });
       previewEl.textContent = `→ ${shown} (${zone})`;
     }
-    startInput.addEventListener("input", updatePreview);
+    startInput.addEventListener("input", () => {
+      // Editing the field says the submitted start is no longer the one under
+      // discussion, so a reschedule verdict retires with the first edit — the
+      // same rule as the booking form's field errors. A fresh submit
+      // re-verdicts.
+      if (reschedVerdict) setStatus("", standingNote);
+      updatePreview();
+    });
     updatePreview();
     reschedForm.addEventListener("submit", (ev) => {
       ev.preventDefault();
       const raw = document.getElementById("resched-start").value;
       if (!raw) {
-        setStatus("error", "Pick a start time first.");
+        setStatus("error", "Pick a start time first.", "resched");
         revealStatus();
         // Focus without scrolling: a focus scroll races the reveal and the
         // last move wins, stranding the verdict off-screen.
@@ -266,7 +283,7 @@
         return;
       }
       if (isPast(raw)) {
-        setStatus("error", "That start is in the past. Pick a later time and try again.");
+        setStatus("error", "That start is in the past. Pick a later time and try again.", "resched");
         revealStatus();
         startInput.focus({ preventScroll: true });
         return;
