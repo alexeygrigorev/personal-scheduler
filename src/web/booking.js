@@ -529,6 +529,8 @@
       // lands between chunks, never inside "30 min". The zone chunk wraps
       // at its own slashes and underscores (zero-width breaks), since the
       // card's anywhere rule would otherwise split it after any letter.
+      // The offset label is its own no-wrap unit: a break after "UTC-"
+      // strands "07:00)" at a line's head.
       const part = (className, textContent) =>
         Object.assign(document.createElement("span"), { className, textContent });
       const nb = (s) => s.replaceAll(" ", "\u00A0");
@@ -544,10 +546,16 @@
         ? `${nb(range)} ${nb("(+1 day) ·")}`
         : `${nb(`${range} ·`)}`;
       const line = part("sum-line", "");
+      const zone = part("sum-zone", "");
+      zone.append(
+        document.createTextNode(`${state.timezone.replace(/([/_])/g, "$1\u200B")} (`),
+        part("sum-off", zoneOffsetLabel(state.selectedStart)),
+        document.createTextNode(")"),
+      );
       line.append(
         part("sum-when", `${when} `),
         part("sum-dur", `${nb(`${fmtDuration(state.duration)} ·`)} `),
-        part("sum-zone", `${state.timezone.replace(/([/_])/g, "$1\u200B")} (${zoneOffsetLabel(state.selectedStart)})`),
+        zone,
       );
       el.replaceChildren(part("sum-line strong", day), line);
     } else {

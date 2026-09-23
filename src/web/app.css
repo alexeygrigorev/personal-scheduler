@@ -623,6 +623,9 @@ textarea { width: 100%; resize: vertical; }
    normal wrapping and breaks at its own slashes: anywhere would split
    "Europe/Berlin" after any letter. */
 .summary-card .sum-zone { overflow-wrap: normal; }
+/* The offset rides inside the zone as its own no-wrap unit: a phone line
+   otherwise breaks after "UTC-" and strands "07:00)" at the next head. */
+.summary-card .sum-off { white-space: nowrap; }
 
 .field { margin: 0 0 1rem; }
 .field label { display: block; font-weight: 600; font-size: var(--fs-secondary); margin-bottom: 0.375rem; }
