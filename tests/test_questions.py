@@ -110,10 +110,11 @@ def test_manage_page_a_canceled_booking_offers_no_actions():
 
 
 def test_manage_page_a_pending_cancellation_is_not_rearmed():
-    # While a cancellation is in flight the badge says so; an armed Cancel
-    # button underneath would invite the exact second click the state rules
-    # out. The card explains instead, and rescheduling stays visible (the
-    # server refuses it while the cancellation is unresolved).
+    # While a cancellation is in flight the badge says so — once. An armed
+    # Cancel button underneath would invite the exact second click the state
+    # rules out, and an armed Reschedule submit would invite a change the
+    # server refuses; the card and the disabled submit explain instead. The
+    # note carries the outcome promise, nothing else repeats the badge.
     booking = {"status": "confirmed", "pending_action": "cancel", "revision": 1,
                "duration_min": 30,
                "start_iso": "2026-10-06T09:00:00+02:00", "end_iso": "2026-10-06T09:30:00+02:00",
@@ -122,14 +123,20 @@ def test_manage_page_a_pending_cancellation_is_not_rearmed():
     body = render.manage_page(booking=booking, token="tok", ics_url="/ics",
                               durations=[30], questions=[])["body"]
     assert "Cancellation pending" in body
+    assert "cancellation pending" not in body  # the headline may not echo the badge
     assert 'id="cancel-form"' not in body
     assert "A cancellation is being processed" in body
+    assert "No action is needed." in body
     assert 'id="reschedule-form"' in body
+    # The lock lives on the control it constrains: a disabled submit plus a
+    # hint that names when composing a new time becomes possible again.
+    assert '<button type="submit" class="btn" disabled>Reschedule</button>' in body
+    assert "Rescheduling opens once the cancellation lands." in body
     # The closing note may not point at actions either: the cancel card below
-    # offers none, and the reschedule form refuses until the cancellation
-    # lands — an action-inviting note would contradict the card next to it.
+    # offers none, and the note carries the outcome promise instead.
     assert "needs the explicit action below" not in body
-    assert "rescheduling waits until it lands" in body
+    assert "rescheduling waits until it lands" not in body
+    assert "this page will reflect the outcome when it lands" in body
 
 
 def test_admin_rejects_an_invalid_question_configuration(table):

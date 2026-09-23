@@ -378,8 +378,9 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
     headline = {"confirmed": "Booking confirmed", "canceled": "Booking canceled"}.get(status, "Booking")
     # Color-coded at a glance, same badge language the admin console uses:
     # green = live booking, red = canceled, amber = a cancel is in flight.
+    # The badge alone names the in-flight state — the headline keeps the
+    # booking's identity, and the badge's words are not repeated beside it.
     if pending == "cancel":
-        headline += " — cancellation pending"
         status_badge = '<span class="badge warn">Cancellation pending</span>'
     elif status == "confirmed":
         status_badge = '<span class="badge ok">Confirmed</span>'
@@ -396,6 +397,13 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
     duration_options = "".join(
         f"<option value=\"{m}\"{' selected' if m == booking.get('duration_min') else ''}>"
         f"{_esc(duration_label(m))}</option>" for m in durations)
+    # While a cancellation is in flight the server refuses every reschedule;
+    # the form says so on its own submit button instead of letting the
+    # visitor compose a change that cannot save.
+    resched_locked = pending == "cancel"
+    lock_hint = ('<span class="hint">Rescheduling opens once the cancellation lands.</span>'
+                 if resched_locked else "")
+    lock_disabled = " disabled" if resched_locked else ""
     reschedule = ""
     display_tz = booking.get("display_tz", "UTC")
     tz_ok = is_valid_zone(display_tz)
@@ -422,7 +430,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 <span class="hint" id="resched-preview" aria-live="polite"></span></div>
 <div class="field"><label for="resched-duration">Duration</label>
 <select id="resched-duration">{duration_options}</select></div>
-<div class="form-actions"><button type="submit" class="btn">Reschedule</button></div>
+{lock_hint}<div class="form-actions"><button type="submit" class="btn"{lock_disabled}>Reschedule</button></div>
 </form>
 </div>"""
     cancel = ""
@@ -434,7 +442,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
             # retries on its own, so the card explains — it does not offer.
             cancel = f"""<div class="panel action-card danger-card">
 <h2>{icon('x', 'ic')}Cancel</h2>
-<p class="hint">{_esc("A cancellation is being processed. This page will reflect the outcome when it lands — no action is needed.")}</p>
+<p class="hint">{_esc("No action is needed.")}</p>
 </div>"""
         else:
             cancel = f"""<div class="panel action-card danger-card">
@@ -467,12 +475,12 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
                   if meeting_is_live else "")
     # The closing note describes the page honestly per state: actions exist
     # only under a confirmed booking, so only that state may point at them.
-    # With a cancellation in flight the page points at no action — the cancel
-    # card explains and offers nothing, and the reschedule form refuses until
-    # the cancellation lands, so the note names that instead of inviting a
-    # submit that cannot go through.
+    # With a cancellation in flight the note owns the one sentence the badge
+    # cannot carry — that the outcome lands here on its own; the reschedule
+    # form's disabled submit names its own lock, so the note need not.
     if status == "confirmed" and pending == "cancel":
-        status_note = "A cancellation is being processed — rescheduling waits until it lands."
+        status_note = ("A cancellation is being processed — this page will "
+                       "reflect the outcome when it lands.")
     elif status == "confirmed":
         status_note = "Opening this page changes nothing. Canceling or rescheduling needs the explicit action below."
     else:
