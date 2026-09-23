@@ -923,7 +923,13 @@ table.admin tbody tr:last-child td { border-bottom: 0; }
 table.admin tbody tr { transition: background-color 120ms ease; }
 table.admin tbody tr:hover { background: var(--bg); }
 table.admin .actions { text-align: right; white-space: nowrap; }
-.actions-stack { display: inline-flex; align-items: center; gap: 0.5rem; }
+/* The stack may wrap in table mode too, not only in the fold: the slug
+ * column is unbounded (the auto-created "new-meeting-type" family is one
+ * nowrap token), and one long slug outvotes the fixed 5-button stack —
+ * the table's min-content outgrows the card and the scroll wrap slices
+ * the last button at the edge. Buttons travel whole onto a right-hugging
+ * second line instead; with room to spare this never engages. */
+.actions-stack { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
 /* Failure note for row actions: its own line under the buttons so a long
  * message wraps inside the card instead of dragging a nowrap button past
  * the card edge. */
@@ -947,6 +953,12 @@ table.admin td.col-slug { overflow-wrap: normal; }
  * row completely where the table could only scroll and slice a button. */
 @media (min-width: 71rem) {
   table.admin td.col-title, table.admin td.col-name { overflow-wrap: normal; min-width: 12rem; }
+  /* Fixed-copy columns (chips, dates, statuses) size to their content and
+   * hand the surplus to the flexible ones: left to the auto layout, slack
+   * scatters across chip columns while the action stack gets shaved a few
+   * pixels into a false wrap. Scoped to table mode — the fold's td is
+   * display:block and must stay full-width. */
+  table.admin th.col-fit, table.admin td.col-fit { width: 1%; }
   /* An email is one token, not a word: inside the floored invitee cell it
    * still breaks anywhere rather than dragging the column wide. */
   table.admin td.col-name .cell-break { overflow-wrap: anywhere; }

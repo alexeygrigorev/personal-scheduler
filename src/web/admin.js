@@ -419,7 +419,7 @@
         "Create one with the button above."));
       return;
     }
-    const { wrap, tbody } = tableView([["Title", "col-title"], ["Slug", "col-slug"], ["Duration", ""], ["Visibility", ""], ["", "col-actions"]]);
+    const { wrap, tbody } = tableView([["Title", "col-title"], ["Slug", "col-slug"], ["Duration", "col-fit"], ["Visibility", "col-fit"], ["", "col-actions"]]);
     for (const t of types) {
       const row = el("tr");
       // Post-create and post-duplicate reloads aim the keyboard at the
@@ -1266,7 +1266,7 @@
         "Confirmed bookings appear here with their manage actions."));
       return;
     }
-    const { wrap, tbody } = tableView([["When", ""], ["Type", "col-type"], ["Invitee", "col-name"], ["Status", ""], ["", "col-actions"]]);
+    const { wrap, tbody } = tableView([["When", "col-fit"], ["Type", "col-type"], ["Invitee", "col-name"], ["Status", "col-fit"], ["", "col-actions"]]);
     for (const b of bookings) {
       const row = el("tr");
       const when = el("td", fmtWhen(b.start_iso));
