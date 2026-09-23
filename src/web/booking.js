@@ -69,7 +69,7 @@
       return await res.json();
     } catch (err) {
       if (!res.ok) throw new Error(`the server answered with an error (${res.status})`);
-      throw new Error("Something went wrong on our side. Please try again.");
+      throw new Error("the server sent a response we could not read");
     }
   }
 
