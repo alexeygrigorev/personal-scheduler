@@ -871,7 +871,9 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 /* ---------- narrow screens ---------- */
 
 @media (max-width: 30rem) {
-  .hero { margin-top: 0.25rem; gap: 1rem; }
+  /* A multi-line intro would center the avatar against the whole text block,
+   * stranding it mid-paragraph; pinned to the top it hangs off the name. */
+  .hero { margin-top: 0.25rem; gap: 1rem; align-items: flex-start; }
   .avatar { width: 3.5rem; height: 3.5rem; font-size: 1.25rem; }
   .month-nav .btn { margin-left: 0; width: 100%; }
   .times { grid-template-columns: repeat(2, minmax(0, 1fr)); }
