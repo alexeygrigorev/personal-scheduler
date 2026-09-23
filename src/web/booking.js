@@ -436,9 +436,16 @@
         // the anchor — the body's edge parked the heading under the sticky
         // site head, clipping it; the heading carries the [id] scroll margin,
         // so it stops below the bar with the summary and first fields still
-        // on screen.
+        // on screen. When the heading is already fully on screen — desktop,
+        // where the sticky panel never left — scrolling anyway only yanks
+        // the calendar out from under the visitor and parks their cursor
+        // over a random slot, so the scroll keeps quiet there.
         const detailsAnchor = document.getElementById("details-head") || formWrap;
-        detailsAnchor.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+        const box = detailsAnchor.getBoundingClientRect();
+        const alreadyInView = box.top >= 0 && box.bottom <= window.innerHeight;
+        if (!alreadyInView) {
+          detailsAnchor.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+        }
       });
       li.appendChild(btn);
       list.appendChild(li);
