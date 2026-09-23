@@ -569,7 +569,10 @@
         restoreConfirmButton();
         await loadAvailability(true); // refreshed alternatives, form entries preserved
         // Set after the refresh so the reload's status text can't overwrite it.
-        setStatus("error", "That time was just taken. Your details are kept — pick a new time below.");
+        // Both banners read as one sentence: on a tall screen the visitor
+        // sees them stacked, and two wordings of the same ask read like
+        // two different problems.
+        setStatus("error", "That time was just taken — your details are kept. Pick a new time below.");
         // The scroll lands on the times list and always leaves the status
         // banner above the day grid off-screen; the verdict must also sit
         // where the visitor is now looking, right above the fresh slots.

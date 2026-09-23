@@ -133,3 +133,18 @@ def test_picking_a_fresh_slot_retires_the_taken_verdict():
     assert 'includes("just taken")' in pick
     assert 'setStatus("", "Time picked — confirm your details below.")' in pick
     assert 'setStatus("error"' not in pick
+
+
+def test_taken_banner_speaks_once_in_one_voice():
+    # On a tall screen the status banner and the times verdict stack in one
+    # view; two wordings of the same ask read like two different problems.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    taken = js.split('data.error.code === "slot_unavailable"', 1)[1]
+    taken = taken.split("return;", 1)[0]
+    said = [line for line in taken.splitlines()
+            if "That time was just taken" in line and "setStatus" in line]
+    verdict = [line for line in taken.splitlines()
+               if "That time was just taken" in line and "verdict.textContent" in line]
+    assert said and verdict
+    text = lambda line: line.split("That time was just taken", 1)[1].split('"', 1)[0]
+    assert text(said[0]) == text(verdict[0])
