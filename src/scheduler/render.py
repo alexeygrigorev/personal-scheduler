@@ -487,7 +487,8 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
         status_note = "This booking is canceled. Its time was released — nothing here needs your attention."
     cfg = {"token": token, "apiBase": "/api/v1",
            "revision": booking.get("revision", 0), "duration": booking.get("duration_min", 30),
-           "timezone": display_tz if tz_ok else "UTC"}
+           "timezone": display_tz if tz_ok else "UTC",
+           "pendingCancel": pending == "cancel"}
     body = f"""<div id="manage-root" data-config='{json.dumps(cfg)}'>
 <div class="narrow">
 <div class="panel manage-panel">

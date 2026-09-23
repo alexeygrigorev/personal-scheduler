@@ -21,3 +21,12 @@ def test_editing_the_start_retires_the_reschedule_verdict():
     # The ownership comparison, two validation branches, and the reschedule
     # action's error path — four places, no untagged raising point.
     assert js.count('"resched"') == 4
+
+
+def test_a_reopened_pending_page_keeps_the_outcome_promise():
+    # The pending note promises "this page will reflect the outcome when it
+    # lands" — a promise a visitor reopening the link mid-cancellation must
+    # not find hollow: the same settle watcher a submitted action arms has
+    # to start on load, fed the pending flag through the page's config.
+    js = (render.WEB_DIR / "manage.js").read_text()
+    assert "if (cfg.pendingCancel) waitForSettle();" in js

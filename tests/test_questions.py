@@ -131,6 +131,9 @@ def test_manage_page_a_pending_cancellation_is_not_rearmed():
     # The lock lives on the control it constrains: a disabled submit plus a
     # hint that names when composing a new time becomes possible again.
     assert '<button type="submit" class="btn" disabled>Reschedule</button>' in body
+    # The config carries the pending flag so manage.js can start its settle
+    # watcher on load and keep the note's outcome promise without a refresh.
+    assert '"pendingCancel": true' in body
     assert "Rescheduling opens once the cancellation lands." in body
     # The closing note may not point at actions either: the cancel card below
     # offers none, and the note carries the outcome promise instead.

@@ -188,6 +188,11 @@
     });
   }
 
+  // The note promises the outcome lands here on its own; a visitor who
+  // reopens this page mid-cancellation gets the same watcher a submitted
+  // action gets, so the promise holds without a manual refresh.
+  if (cfg.pendingCancel) waitForSettle();
+
   const reschedForm = document.getElementById("reschedule-form");
   if (reschedForm) {
     // The picker speaks the booking's display-zone wall clock (the server
