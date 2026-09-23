@@ -114,17 +114,6 @@ h2 { font-size: var(--fs-h2); line-height: 1.35; margin: 0 0 0.375rem; font-weig
 p { margin: 0.5rem 0; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 a:hover { color: var(--accent-strong); }
-
-/* Event titles, host names, and emails are typed input, and one long token
- * bleeds past its card and under the neighbor instead of scrolling the page.
- * anywhere, not break-word: break-word leaves min-content widths — and with
- * them the card, grid, and table track sizes — inflated. Fixed copy never
- * reaches the threshold, so it never breaks mid-word. */
-h1, h2,
-.hero .intro, .card .desc, .info-desc, .info-panel .host-name,
-.page-intro .sub, .manage-sub, .manage-answers .q,
-.summary-card .sum-line, .centerpiece p, .next-booking-row,
-table.admin td { overflow-wrap: anywhere; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
@@ -790,10 +779,7 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
     margin-top: 0.375rem; padding-top: 0.625rem;
     border-top: 1px dashed var(--line);
   }
-  /* The stack folds like its cell: three buttons at 320px, or one armed
-     "Really disable?", would otherwise push the group past the card's
-     left edge and clip the first button mid-border. */
-  .actions-stack { gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+  .actions-stack { gap: 0.5rem; }
   table.admin td.actions { flex-wrap: wrap; }
   table.admin td.actions .row-error { flex: 1 1 100%; margin-top: 0.25rem; }
 }
@@ -866,10 +852,6 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   .site-head .wrap { padding-top: 0.5rem; padding-bottom: 0.625rem; }
   .site-head-side { flex-basis: 100%; justify-content: space-between; }
   .site-head-side .whoami { max-width: 16rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* Hug-content wrapping strands the tab block at half the card width with a
-   * ragged right edge; two equal columns read as one aligned group. */
-  .tabs { display: flex; width: 100%; }
-  .tabs button { flex: 1 1 40%; }
 }
 
 /* ---------- print ---------- */
