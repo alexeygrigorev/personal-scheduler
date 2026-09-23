@@ -836,3 +836,28 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 }
+
+/* ---------- forced colors ---------- */
+
+/* Forced-colors mode (Windows High Contrast) discards filled backgrounds
+ * and box-shadows — exactly how selection reads here, so the picked day,
+ * time, duration, and admin tab would all look unpressed. Carry the state
+ * on the border and an inset ring, which the OS palette preserves. */
+@media (forced-colors: active) {
+  .segmented label:has(input:checked),
+  .day-grid button[aria-pressed="true"],
+  .times button[aria-pressed="true"],
+  .tabs button[aria-pressed="true"] {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  /* The today ring is a box-shadow on screen and needs the same treatment,
+   * thinner so it never reads as the selection; a picked today stays
+   * Highlight. */
+  .day-grid button.today { outline: 1px solid CanvasText; outline-offset: -2px; }
+  .day-grid button.today[aria-pressed="true"],
+  .day-grid button.today[aria-pressed="true"]:hover {
+    outline: 2px solid Highlight;
+  }
+}
