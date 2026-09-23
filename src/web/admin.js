@@ -212,13 +212,14 @@
   }
 
   async function loadOverview() {
-    const [data, settings, typeData, upcoming] = await Promise.all([
+    const [data, settings, typeData, upcoming, conn] = await Promise.all([
       call("/overview"),
       hostSettings(),
       call("/event-types").catch(() => ({})),
       // A dead bookings endpoint must reach this builder as a failure, not
       // as {}: null says "the load failed" so the panel can say so too.
       call("/bookings?status=confirmed").catch(() => null),
+      call("/dapier").catch(() => ({})),
     ]);
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const health = data.health || {};
@@ -235,6 +236,45 @@
       "Provider connection"));
     grid.appendChild(statTile("New bookings", badge(data.paused ? "danger" : "ok", data.paused ? "Paused" : "Open")));
     box.appendChild(grid);
+    // The connection card sits between the stats and the bookings shelf:
+    // without a granted Dapier connection nothing downstream can work, so
+    // it is the first thing a first-run host should meet — with the
+    // authorize hand-off one click away rather than living in the README.
+    const connPanel = el("div");
+    connPanel.className = "panel calendar-connection";
+    const connHead = el("div");
+    connHead.className = "panel-head";
+    connHead.appendChild(el("h2", "Calendar connection"));
+    if (conn.authorize_url) {
+      const auth = el("a", "Authorize in Dapier");
+      auth.className = "btn sm";
+      auth.href = conn.authorize_url;
+      // Dapier is another host; it owns the account verification and the
+      // agent grant, and this console has nothing to gain from trapping
+      // the navigation.
+      auth.target = "_blank";
+      auth.rel = "noopener noreferrer";
+      connHead.appendChild(auth);
+    }
+    connPanel.appendChild(connHead);
+    const connLine = el("p");
+    connLine.className = "conn-line";
+    connLine.appendChild(el("strong", "Connection "));
+    connLine.appendChild(document.createTextNode(conn.connection_ref || "not configured"));
+    connLine.appendChild(document.createTextNode(" · "));
+    connLine.appendChild(healthBadge(conn.health || "unknown"));
+    connPanel.appendChild(connLine);
+    const connAccount = el("p");
+    connAccount.className = "conn-line";
+    if (conn.expected_account) {
+      connAccount.appendChild(el("strong", "Calendar account "));
+      connAccount.appendChild(document.createTextNode(conn.expected_account));
+    } else {
+      connAccount.appendChild(document.createTextNode(
+        "Not authorized yet — open Dapier, verify your Google account on this connection, and grant the personal-scheduler agent access to it."));
+    }
+    connPanel.appendChild(connAccount);
+    box.appendChild(connPanel);
     // The pause control lives in the schedule panel's header row: a button
     // floating between the stat tiles and the panel read as an orphan with
     // no object, and it governs exactly what this panel shows.

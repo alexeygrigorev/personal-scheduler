@@ -240,9 +240,10 @@ def test_a_failed_upcoming_load_never_reads_as_an_empty_shelf():
     js = _admin_js()
     overview = js.split("async function loadOverview", 1)[1].split("async function loadTypes", 1)[0]
     assert 'call("/bookings?status=confirmed").catch(() => null)' in overview
-    # Only the bookings call is converted to null; event-types stays a
-    # swallowed {} because it only degrades labels, never lies.
-    assert overview.count(".catch(() => ({}))") == 1
+    # Only the bookings call is converted to null; event-types and dapier
+    # stay swallowed {}s because they only degrade labels, never lie — a
+    # dead dapier endpoint reads as "not configured", not as an outage.
+    assert overview.count(".catch(() => ({}))") == 2
     failed = overview.split("upcoming === null", 1)[1]
     assert 'failed.className = "empty-state error"' in failed
     assert 'el("p", "Could not load upcoming bookings.")' in failed

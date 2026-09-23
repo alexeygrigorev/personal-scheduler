@@ -237,8 +237,15 @@ def _admin_api(event, segments, method, email):
         return http.json_response(200, store.get_calendar_connection())
     if segments == ["dapier"] and method == "GET":
         connection = store.get_calendar_connection()
+        ref = str(connection.get("dapier_connection_ref") or "")
+        # The console's Authorize button deep-links into Dapier's own page
+        # for this connection — that is where account verification and the
+        # agent grant live; this app never handles provider OAuth itself.
+        authorize_url = (f"{config.DAPIER_BASE_URL}/connections/{urllib.parse.quote(ref)}"
+                         if ref else "")
         return http.json_response(200, {
-            "connection_ref": connection.get("dapier_connection_ref"),
+            "connection_ref": ref,
+            "authorize_url": authorize_url,
             "expected_provider": connection.get("expected_provider"),
             "expected_account": connection.get("expected_account"),
             "health": (connection.get("health") or {}).get("dapier", "unknown")})
@@ -313,6 +320,11 @@ def lambda_handler(event, _context):
 
         email = _signed_in(event)
         if not email:
+            # The console's front door shows where the click leads instead of
+            # bouncing through two redirects to the identity provider; deep
+            # links keep the silent redirect so the `next` target survives.
+            if path in ("/admin", "/admin/"):
+                return render.login_gate(f"/auth/login?next={urllib.parse.quote(path)}")
             return http.redirect(f"/auth/login?next={urllib.parse.quote(path)}")
         # Authentication proves identity; the host allowlist authorizes.
         if not store.is_admin(email):

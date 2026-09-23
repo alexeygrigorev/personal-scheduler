@@ -1019,6 +1019,16 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 
 .settings-card { max-width: 36rem; margin-inline: auto; }
 .next-bookings { margin-top: 0.25rem; }
+/* Signed-out /admin gate: one quiet card naming what the console does. */
+.login-gate { display: flex; flex-direction: column; align-items: flex-start; gap: 0.375rem; max-width: 34rem; margin: 3.5rem auto 0; padding: 0 0.25rem; }
+.login-gate h1 { margin: 0; }
+.login-gate .gate-sub { color: var(--muted); margin: 0; text-wrap: pretty; }
+.login-gate .btn { margin-top: 1rem; }
+/* Overview connection card: the Dapier hand-off and its live facts. */
+.calendar-connection { margin-top: 0.25rem; }
+.calendar-connection .conn-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.375rem; margin: 0.375rem 0 0; color: var(--muted); font-size: var(--fs-secondary); }
+.calendar-connection .conn-line strong { color: var(--ink); }
+.calendar-connection .panel-head .btn { flex: none; white-space: nowrap; }
 /* Panel header row: title left, its governing action (pause/resume) right. */
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.625rem 1rem; flex-wrap: wrap; margin-bottom: 0.375rem; }
 .panel-head h2 { margin: 0; }

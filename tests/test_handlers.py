@@ -250,7 +250,13 @@ def test_management_status_probe_is_read_only_and_minimal(live):
 
 def test_admin_auth_boundary(live):
     """C06: an ordinary signed-in account is still refused the console."""
-    assert call(admin_handler.lambda_handler, "/admin").statusCode == 302
+    gate = call(admin_handler.lambda_handler, "/admin")
+    assert gate.statusCode == 200
+    assert "Log in" in gate["body"]
+    assert "/auth/login?next=" in gate["body"]
+    # Deep links keep the silent redirect so the `next` target survives.
+    deep = call(admin_handler.lambda_handler, "/admin/api/overview")
+    assert deep.statusCode == 302
     member = call(admin_handler.lambda_handler, "/admin",
                   cookies=[admin_session("member@datatalks.club")])
     assert member.statusCode == 403
@@ -261,6 +267,17 @@ def test_admin_auth_boundary(live):
                     cookies=[admin_session("host@datatalks.club")])
     assert overview.statusCode == 200
     assert "upcoming_count" in json.loads(overview["body"])
+
+
+def test_admin_dapier_handoff(live):
+    """The console's Dapier card gets a real authorize URL to open, plus the
+    connection facts it labels — and the gate renders before any of it."""
+    cookies = [admin_session("host@datatalks.club")]
+    res = call(admin_handler.lambda_handler, "/admin/api/dapier", cookies=cookies)
+    assert res.statusCode == 200
+    data = json.loads(res["body"])
+    assert data["connection_ref"] == "calendar-alexey"
+    assert data["authorize_url"] == "https://dapier.dtcdev.click/connections/calendar-alexey"
 
 
 def test_admin_console_edits_are_version_guarded(live):

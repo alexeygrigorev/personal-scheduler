@@ -634,6 +634,18 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
                   status=502, link=("Back to booking", "/"), brand_name=host_name or None)
 
 
+def login_gate(login_url):
+    """Signed-out /admin: a quiet sign-in card naming what the console does,
+    so the host sees where the click leads before leaving for the provider."""
+    body = (f"<div class=\"login-gate\">"
+            f"<h1>Host console</h1>"
+            f"<p class=\"gate-sub\">Manage schedules, meeting types, bookings, and the "
+            f"calendar connection — signed in with the host account.</p>"
+            f"<a class=\"btn\" href=\"{_esc(login_url)}\">Log in</a>"
+            f"</div>")
+    return http.html_response(200, shell("Scheduler admin", body, main_class="login"))
+
+
 def admin_shell(email):
     side = (f"<span class=\"whoami\">Signed in as <strong>{_esc(email)}</strong></span>"
             f"<a href=\"/auth/logout\">Sign out</a>")
