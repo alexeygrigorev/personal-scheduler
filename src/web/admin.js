@@ -310,8 +310,14 @@
     create.className = "btn sm";
     const createNote = el("span");
     createNote.className = "saved-note";
-    head.appendChild(create);
-    head.appendChild(createNote);
+    // Head grammar is h2 left, actions right — but space-between reads a
+    // bare third child as an invisible right edge, dropping the button to
+    // the column's middle. Button and note travel as one right-hand pair.
+    const end = el("div");
+    end.className = "panel-head-end";
+    end.appendChild(create);
+    end.appendChild(createNote);
+    head.appendChild(end);
     box.appendChild(head);
     // Slug pointers are last-write-wins server-side: a colliding slug
     // would silently steal another type's public address, so the create
