@@ -149,11 +149,26 @@
     renderTimes([]);
   }
 
+  // Two quick month flips fire two loads; whichever response arrives last
+  // must win, not whichever was asked for last but answered first. Each
+  // load tags itself, and only the newest tag may touch the grid.
+  let loadSeq = 0;
+
+  function setNavLoading(busy) {
+    $("next-month").disabled = busy;
+    $("next-day").disabled = busy;
+    if (busy) $("prev-month").disabled = true;
+    else syncMonthNav();
+  }
+
   async function loadAvailability(keepForm = false) {
+    const seq = ++loadSeq;
     if (!keepForm) showDetails(false);
     state.selectedStart = "";
     renderSkeleton();
     setStatus("", "Loading available times…");
+    setNavLoading(true);
+    $("day-grid").setAttribute("aria-busy", "true");
     const { from, to } = viewerMonthRange();
     const params = new URLSearchParams({
       type: cfg.slug, duration: String(state.duration), from, to, tz: state.timezone,
@@ -164,10 +179,16 @@
       data = await readJson(res);
       if (!res.ok) throw new Error((data.error && data.error.message) || `request failed (${res.status})`);
     } catch (err) {
+      if (seq !== loadSeq) return; // a newer load owns the grid now
+      setNavLoading(false);
+      $("day-grid").removeAttribute("aria-busy");
       setStatus("error", `Could not load times — ${why(err)}.`);
       renderEmptyMonth("Availability could not be loaded.", true);
       return;
     }
+    if (seq !== loadSeq) return; // a newer load owns the grid now
+    setNavLoading(false);
+    $("day-grid").removeAttribute("aria-busy");
     const byDay = {};
     for (const slot of data.slots || []) {
       const day = new Date(slot.start).toLocaleDateString("en-CA", { timeZone: state.timezone });
