@@ -177,6 +177,10 @@
     // card must stop advertising the slot that just failed.
     updateSummary();
     renderSkeleton();
+    // The taken-slot verdict lives in the times head; a fresh load must not
+    // resurface it when the head un-hides with new times.
+    const staleVerdict = document.getElementById("times-verdict");
+    if (staleVerdict) staleVerdict.remove();
     setStatus("", "Loading available times…");
     setNavLoading(true);
     $("day-grid").setAttribute("aria-busy", "true");
@@ -545,12 +549,26 @@
         await loadAvailability(true); // refreshed alternatives, form entries preserved
         // Set after the refresh so the reload's status text can't overwrite it.
         setStatus("error", "That time was just taken. Your details are kept — pick a new time below.");
+        // The scroll lands on the times list and always leaves the status
+        // banner above the day grid off-screen; the verdict must also sit
+        // where the visitor is now looking, right above the fresh slots.
+        let verdict = document.getElementById("times-verdict");
+        if (!verdict) {
+          verdict = document.createElement("p");
+          verdict.id = "times-verdict";
+          verdict.className = "times-verdict";
+          verdict.tabIndex = -1;
+          timesHead.appendChild(verdict);
+        }
+        verdict.textContent = "That time was just taken — your details are kept. Pick a new time below.";
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        document.getElementById("time-list").scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+        timesHead.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
         // Focus stayed on Confirm, which the scroll just carried off-screen on
-        // a phone; the first open slot is where picking continues.
+        // a phone; the first open slot is where picking continues. With no
+        // fresh slot to take focus, the verdict is the thing to read next.
         const fresh = document.querySelector("#time-list button");
         if (fresh) fresh.focus({ preventScroll: true });
+        else verdict.focus({ preventScroll: true });
         return;
       }
       if (!res.ok) {
