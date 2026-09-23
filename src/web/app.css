@@ -861,6 +861,10 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   .site-head .wrap { padding-top: 0.5rem; padding-bottom: 0.625rem; }
   .site-head-side { flex-basis: 100%; justify-content: space-between; }
   .site-head-side .whoami { max-width: 16rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Hug-content wrapping strands the tab block at half the card width with a
+   * ragged right edge; two equal columns read as one aligned group. */
+  .tabs { display: flex; width: 100%; }
+  .tabs button { flex: 1 1 40%; }
 }
 
 /* ---------- print ---------- */
