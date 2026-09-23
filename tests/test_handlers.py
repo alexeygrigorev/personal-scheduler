@@ -298,7 +298,7 @@ def test_pending_operation_has_a_status_view(live):
     page = call(public_handler.lambda_handler,
                 data["receipt_url"].replace("https://scheduler.test", ""))
     assert page.statusCode == 200
-    assert "reconciled" in page["body"]
+    assert "Confirming your booking" in page["body"]
 
 
 def test_settings_save_refuses_a_malformed_email_or_url(live):

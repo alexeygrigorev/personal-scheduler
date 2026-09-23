@@ -575,12 +575,17 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
                                              tz_note=f"Times shown in "
                                                      f"{booking.get('display_tz', 'UTC')}"))
     if state in ("in_progress", "unknown"):
+        # The store calls this state "reconciling" and the calendar call a
+        # "write", but this page is the visitor's: it keeps the state's four
+        # promises (in progress, slot protected, don't rebook, self-updating)
+        # in words a booker never needed the internals to understand.
         body = (f"<div class=\"centerpiece panel\">"
                 f"<span class=\"status-orb pending\">{icon('clock', 'ic')}</span>"
-                f"<h1>Booking is being reconciled</h1>"
-                f"<p>The calendar write has an unknown outcome. Your time is protected; "
-                f"do not book again. This page rechecks every few seconds and reflects "
-                f"the outcome once known.</p></div>")
+                f"<h1>Confirming your booking</h1>"
+                f"<p>Your slot is protected while we finish confirming it with "
+                f"the calendar. Please don't book again in the meantime — this "
+                f"page updates on its own and shows the result in a few "
+                f"seconds.</p></div>")
         # The promise above has to be true without visitor effort: reload
         # until this page stops being what the server serves (a settled
         # operation renders a different page with no refresh tag).
