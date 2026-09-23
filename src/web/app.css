@@ -713,6 +713,10 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 .q-editor .dur-row { display: flex; flex-wrap: wrap; align-items: center; min-height: 2.75rem; margin-bottom: 0.5rem; }
 .q-editor .dur-fixed { display: inline-flex; align-items: center; gap: 0.375rem; white-space: nowrap; }
 .q-editor .dur-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.125rem; margin: 0.25rem 0 0 1.5rem; }
+/* Each chip is a label inside the .field, so the block-heading rule
+   (.field label) outranks .q-check: the chip redrew as a block, fusing the
+   box with its word and dragging a stray heading margin under every chip. */
+.q-editor .dur-opts .q-check { display: inline-flex; margin-bottom: 0; }
 .q-editor .dur-row[hidden], .q-editor .dur-opts[hidden] { display: none; }
 /* The panel carries no id, so the shared [id] scroll-margin never reaches
    it; without its own, tabbing or scrolling to the editor parks its
