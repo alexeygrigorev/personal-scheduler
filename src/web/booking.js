@@ -129,7 +129,18 @@
       retryBtn.type = "button";
       retryBtn.className = "btn secondary sm";
       retryBtn.textContent = "Retry";
-      retryBtn.addEventListener("click", () => loadAvailability());
+      retryBtn.addEventListener("click", () => {
+        loadAvailability().then(() => {
+          // Whichever way the retry lands, keyboard focus stays in the grid:
+          // the fresh Retry button on another failure, the picked day (or the
+          // first bookable one) on success.
+          const again = document.querySelector(".empty-cell.with-action button");
+          const day = document.querySelector('#day-grid button[aria-pressed="true"]')
+            || document.querySelector("#day-grid button[data-day]");
+          const target = again || day;
+          if (target) target.focus({ preventScroll: true });
+        });
+      });
       cell.appendChild(retryBtn);
     } else {
       cell.textContent = message || "Try another month, or use “Next available day”.";
