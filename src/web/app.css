@@ -765,6 +765,7 @@ main.centered .centerpiece { margin: auto; }
 .centerpiece p { color: var(--muted); text-wrap: pretty; }
 .centerpiece .detail-line { color: var(--ink); font-weight: 600; text-wrap: balance; }
 .centerpiece .what-line { font-size: var(--fs-h2); }
+.centerpiece .what-host { white-space: nowrap; }
 .centerpiece .what-duration { color: var(--muted); font-weight: 550; font-size: var(--fs-body); }
 /* "Joining:" is a prose lead-in; the URL is reference data, so the line
  * reads at prose weight and the secondary-size link stays the payload. */

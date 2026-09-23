@@ -527,11 +527,16 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
         # heading scale, the length trails as context instead of competing.
         what_line = ""
         if booking.get("title"):
-            title = str(booking["title"]) + (f" with {host_name}" if host_name else "")
+            # The host phrase is one unbreakable unit, so the heading's line
+            # break lands after the session name instead of stranding "with"
+            # at the end of a line.
+            host_phrase = (f" <span class=\"what-host\">with {_esc(host_name)}</span>"
+                           if host_name else "")
             dur = (f" <span class=\"what-duration\">· "
                    f"{_esc(duration_label(int(booking['duration_min'])))}</span>"
                    if booking.get("duration_min") else "")
-            what_line = f"<p class=\"detail-line what-line\">{_esc(title)}{dur}</p>"
+            what_line = (f"<p class=\"detail-line what-line\">"
+                         f"{_esc(str(booking['title']))}{host_phrase}{dur}</p>")
         # Joining details travel with the receipt, not just the email: the
         # invitee who opens the receipt link later still needs the room.
         joining = (booking.get("conference", {}) or {}).get("link", "") \
