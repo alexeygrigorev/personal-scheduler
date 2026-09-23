@@ -803,6 +803,17 @@ table.admin td.col-slug { overflow-wrap: normal; }
  * breaks at the hyphen ("deep- / dive"). Desktop table mode keeps it whole;
  * the folded layout's value column is wide enough not to need it. */
 @media (min-width: 48rem) { table.admin td.col-slug { white-space: nowrap; } }
+/* Free-copy columns keep a readable floor: a long fixed-copy cell (a wide
+ * slug, an armed action stack) can starve them to one fragment a line, and
+ * anywhere-wrap hides the collapse by shrinking their min-content away. The
+ * floor pushes back — squeezed past it, the table grows and .table-scroll
+ * scrolls instead of clipping buttons or stacking title fragments. */
+@media (min-width: 48rem) {
+  table.admin td.col-title, table.admin td.col-name { overflow-wrap: normal; min-width: 12rem; }
+  /* An email is one token, not a word: inside the floored invitee cell it
+   * still breaks anywhere rather than dragging the column wide. */
+  table.admin td.col-name .cell-break { overflow-wrap: anywhere; }
+}
 table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 .table-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); }
 

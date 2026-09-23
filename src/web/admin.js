@@ -297,12 +297,12 @@
     const data = await call("/event-types");
     const box = document.getElementById("types");
     box.innerHTML = "";
-    const { wrap, tbody } = tableView([["Title", ""], ["Slug", "col-slug"], ["Duration", ""], ["Visibility", ""], ["", "col-actions"]]);
+    const { wrap, tbody } = tableView([["Title", "col-title"], ["Slug", "col-slug"], ["Duration", ""], ["Visibility", ""], ["", "col-actions"]]);
     for (const t of data.event_types || []) {
       const row = el("tr");
       const titleCell = el("td", t.title);
       // Admin titles are free text: one long word must wrap, not clip.
-      titleCell.className = "cell-break";
+      titleCell.className = "col-title cell-break";
       titleCell.dataset.label = "Title";
       row.appendChild(titleCell);
       const slug = el("td", t.slug);
@@ -1074,7 +1074,7 @@
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const box = document.getElementById("bookings");
     box.innerHTML = "";
-    const { wrap, tbody } = tableView([["When", ""], ["Type", "col-type"], ["Invitee", ""], ["Status", ""], ["", "col-actions"]]);
+    const { wrap, tbody } = tableView([["When", ""], ["Type", "col-type"], ["Invitee", "col-name"], ["Status", ""], ["", "col-actions"]]);
     for (const b of data.bookings || []) {
       const row = el("tr");
       const when = el("td", fmtWhen(b.start_iso));
@@ -1085,6 +1085,7 @@
       type.dataset.label = "Type";
       row.appendChild(type);
       const invitee = el("td");
+      invitee.className = "col-name";
       invitee.dataset.label = "Invitee";
       const person = el("div");
       person.className = "invitee-main";
