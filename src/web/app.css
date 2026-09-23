@@ -986,10 +986,12 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
  * the day/time washes would read as a phantom pre-selection until the next
  * tap lands elsewhere. Touch + pen pointers get the resting styles back;
  * (hover: hover) pointers keep every effect above. Selected and armed
- * states keep their filled looks: their own rules outrank these. */
+ * states keep their filled looks: their own rules outrank these. Every
+ * restore restates the base rule's own paint — the accent fill tokens
+ * included — so prefers-color-scheme: dark inherits it unchanged. */
 @media (hover: none) {
   .btn:hover {
-    background: linear-gradient(180deg, #5b52ee 0%, var(--accent) 100%);
+    background: linear-gradient(180deg, var(--accent-hi) 0%, var(--accent-fill) 100%);
     transform: none;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(22, 35, 59, 0.18);
   }
@@ -1000,7 +1002,7 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   .card:hover { border-color: var(--line); box-shadow: var(--shadow-card); transform: none; }
   .stat:hover { border-color: var(--line); box-shadow: var(--shadow-card); }
   .segmented label:hover { border-color: var(--line-strong); background: var(--surface); }
-  .segmented label:has(input:checked):hover { background: linear-gradient(180deg, #5b52ee, var(--accent)); }
+  .segmented label:has(input:checked):hover { background: linear-gradient(180deg, var(--accent-hi), var(--accent-fill)); }
   .icon-btn:hover { background: var(--surface); border-color: var(--line-strong); }
   .icon-btn[disabled]:hover { background: transparent; border-color: var(--line); }
   .day-grid button[aria-pressed]:hover {
@@ -1009,11 +1011,11 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
   }
   .day-grid button.today[aria-pressed]:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .day-grid button[aria-pressed="true"]:hover {
-    background: linear-gradient(180deg, #5b52ee, var(--accent)); color: #fff;
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent-fill)); color: #fff;
   }
   .times button:hover { background: var(--surface); border-color: var(--accent-border); }
   .times button[aria-pressed="true"]:hover {
-    background: linear-gradient(180deg, #5b52ee, var(--accent)); border-color: var(--accent); color: #fff;
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent-fill)); border-color: var(--accent-fill); color: #fff;
   }
   select:hover, input:hover, textarea:hover { border-color: var(--line-strong); }
   .tabs button:hover { background: transparent; color: var(--muted); }
