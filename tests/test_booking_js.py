@@ -93,3 +93,23 @@ def test_the_browser_zone_joins_the_picker_at_the_top_with_an_offset():
     assert "insertBefore(opt, tzSelect.firstChild)" in boot
     assert "shortOffset" in boot
     assert 'padStart(2, "0")' in boot
+
+
+def test_every_offset_on_the_page_reads_one_dialect():
+    # The picker labels say (UTC+05:30); the summary card used its own
+    # formatter and said (UTC+5:30) — the same page speaking two dialects
+    # of the same fact reads like a typo in one of them.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    label = js.split("function zoneOffsetLabel(iso) {", 1)[1].split("\n  }", 1)[0]
+    assert 'padStart(2, "0")' in label
+    assert '"UTC+00:00"' in label
+
+
+def test_every_offset_on_the_page_reads_one_dialect():
+    # The picker labels say (UTC+05:30); the summary card used its own
+    # formatter and said (UTC+5:30) — the same page speaking two dialects
+    # of the same fact reads like a typo in one of them.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    label = js.split("function zoneOffsetLabel(iso) {", 1)[1].split("\n  }", 1)[0]
+    assert 'padStart(2, "0")' in label
+    assert '"UTC+00:00"' in label

@@ -473,16 +473,25 @@
   }
 
   function zoneOffsetLabel(iso) {
-    // Offset must describe the selected zone, not the browser's own zone.
+    // Offset must describe the selected zone, not the browser's own zone,
+    // and read like the picker's labels: two-digit hours (+05:30), so a
+    // half-hour zone doesn't switch dialects between select and summary.
     try {
       const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: state.timezone, timeZoneName: "shortOffset",
       }).formatToParts(new Date(iso));
       const named = parts.find((p) => p.type === "timeZoneName");
-      if (named) return named.value.replace(/^GMT/, "UTC");
+      if (named) {
+        const m = named.value.replace(/^GMT/, "UTC").match(/^UTC([+-])(\d{1,2})(?::(\d{2}))?$/);
+        if (m) return `UTC${m[1]}${m[2].padStart(2, "0")}:${m[3] ?? "00"}`;
+        return "UTC+00:00";
+      }
     } catch (err) { /* older engine: numeric fallback below */ }
     const offset = -new Date(iso).getTimezoneOffset() / 60;
-    return `UTC${offset >= 0 ? "+" : ""}${offset}`;
+    const sign = offset < 0 ? "-" : "+";
+    const hh = String(Math.floor(Math.abs(offset))).padStart(2, "0");
+    const mm = String(Math.round((Math.abs(offset) % 1) * 60)).padStart(2, "0");
+    return `UTC${sign}${hh}:${mm}`;
   }
 
   function updateSummary() {
