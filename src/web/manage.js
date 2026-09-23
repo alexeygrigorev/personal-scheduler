@@ -260,13 +260,15 @@
       if (!raw) {
         setStatus("error", "Pick a start time first.");
         revealStatus();
-        startInput.focus();
+        // Focus without scrolling: a focus scroll races the reveal and the
+        // last move wins, stranding the verdict off-screen.
+        startInput.focus({ preventScroll: true });
         return;
       }
       if (isPast(raw)) {
         setStatus("error", "That start is in the past. Pick a later time and try again.");
         revealStatus();
-        startInput.focus();
+        startInput.focus({ preventScroll: true });
         return;
       }
       const start = wallToIso(raw, cfg.timezone || "UTC") || raw;
