@@ -367,7 +367,12 @@
   }
 
   // Error spans follow the input id: f-name → err-name, q-<id> → err-q-<id>.
+  // Radio groups share one verdict span named after the question, since the
+  // individual buttons carry no id of their own.
   function errIdFor(input) {
+    if (input.type === "radio" || input.hasAttribute("data-other-input")) {
+      return "err-q-" + input.dataset.question;
+    }
     return "err-" + input.id.replace(/^f-/, "");
   }
 
@@ -376,6 +381,13 @@
   function validateDetails() {
     let firstInvalid = null;
     document.querySelectorAll("#details-form [required]").forEach((input) => {
+      if (input.type === "radio" && !input.checked) {
+        // A required choice group gets one verdict: if any sibling is
+        // checked the group is satisfied; unchecked buttons stay silent.
+        const group = document.querySelectorAll(
+          `#details-form input[type="radio"][data-question="${input.dataset.question}"]`);
+        if ([...group].some((r) => r.checked)) return;
+      }
       const value = input.value.trim();
       let message = "";
       if (!value) {
@@ -390,6 +402,14 @@
       } else {
         input.removeAttribute("aria-invalid");
       }
+    });
+    // "Other" collects the typed text: a checked Other radio with an empty
+    // field is an unfinished answer, so it asks for the words.
+    document.querySelectorAll("#details-form [data-other-radio]:checked").forEach((radio) => {
+      const otherInput = radio.closest(".choice-field").querySelector("[data-other-input]");
+      const message = otherInput && otherInput.value.trim() ? "" : "Please specify your answer.";
+      fieldError(errIdFor(radio), message);
+      if (message) firstInvalid = firstInvalid || otherInput;
     });
     if (firstInvalid) firstInvalid.focus();
     return !firstInvalid;
@@ -435,8 +455,21 @@
       tz: state.timezone,
       idempotency_key: state.idempotencyKey,
     };
-    document.querySelectorAll("[data-question]").forEach((input) => {
-      payload.answers[input.dataset.question] = input.value;
+    document.querySelectorAll("#details-form [data-question]").forEach((el) => {
+      if (el.type === "radio") {
+        // Named choices speak for themselves; the empty-valued Other radio
+        // never carries an answer.
+        if (el.checked && el.value) payload.answers[el.dataset.question] = el.value;
+      } else if (el.hasAttribute("data-other-input")) {
+        // The Other field only counts while its radio is picked — a stale
+        // half-typed answer must not win over a named choice.
+        const radio = el.closest(".choice-field").querySelector("[data-other-radio]");
+        if (radio && radio.checked && el.value.trim()) {
+          payload.answers[el.dataset.question] = el.value.trim();
+        }
+      } else {
+        payload.answers[el.dataset.question] = el.value;
+      }
     });
     const btn = $("confirm-btn");
     btn.disabled = true;
@@ -464,9 +497,13 @@
           ["f-email", "err-email", "email"],
           ["f-notes", "err-notes", "agenda"],
           // Autofill and programmatic input bypass maxlength; the server's
-          // per-question verdicts must still land on their own field.
-          ...[...document.querySelectorAll("#details-form [data-question]")].map(
-            (el) => [el.id, "err-" + el.id, "q:" + el.dataset.question]),
+          // per-question verdicts must still land on their own field. Radio
+          // buttons have no id, so their group span is named by question.
+          ...[...document.querySelectorAll("#details-form [data-question]")].map((el) => [
+            el.id,
+            (el.type === "radio" || el.hasAttribute("data-other-input"))
+              ? "err-q-" + el.dataset.question : "err-" + el.id,
+            "q:" + el.dataset.question]),
         ];
         for (const [inputId, errId, key] of rows) {
           const message = fields[key];
@@ -642,6 +679,13 @@
     if (!input.matches("[required]")) return;
     input.removeAttribute("aria-invalid");
     fieldError(errIdFor(input), "");
+  });
+  // Choosing "Other" hands focus straight to the text field so the answer
+  // starts where the visitor's intent already is.
+  document.getElementById("details-form").addEventListener("change", (ev) => {
+    if (!ev.target.matches("[data-other-radio]")) return;
+    const otherInput = ev.target.closest(".choice-field").querySelector("[data-other-input]");
+    if (otherInput) otherInput.focus();
   });
 
   const now = new Date();

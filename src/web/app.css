@@ -501,6 +501,20 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 .form-note { color: var(--muted); font-size: var(--fs-caption); margin: 0.75rem 0 1rem; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 0.625rem; align-items: center; }
 
+/* Single-choice questions: one verdict line, roomy radio rows. */
+.choice-field .q-label { display: block; font-weight: 600; font-size: var(--fs-secondary); margin-bottom: 0.375rem; }
+.choice-field .choice {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-weight: 400; font-size: var(--fs-body);
+  min-height: 2.75rem; margin-bottom: 0;
+  padding: 0.25rem 0;
+}
+.choice-field .choice input { width: 1.0625rem; height: 1.0625rem; flex: none; accent-color: var(--accent); }
+.choice-field .other-input { margin: 0.125rem 0 0.25rem 1.6875rem; max-width: 22rem; }
+.choice-field .choice input[aria-invalid="true"] {
+  outline: 2px solid var(--danger); outline-offset: 1px;
+}
+
 /* ---------- manage ---------- */
 
 .narrow { max-width: 40rem; margin: 0 auto; }
@@ -515,6 +529,26 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 }
 .manage-summary .row-line:last-child { border-bottom: 0; }
 .manage-summary .label { color: var(--muted); font-size: var(--fs-secondary); flex: none; width: 5.5rem; }
+.manage-answers { margin: 0.25rem 0 1.125rem; }
+.manage-answers h2 { font-size: var(--fs-body); margin-bottom: 0.25rem; }
+.manage-answers .answer { padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
+.manage-answers .answer:last-child { border-bottom: 0; }
+.manage-answers .answer .q { display: block; color: var(--muted); font-size: var(--fs-secondary); }
+.manage-answers .answer .a { display: block; overflow-wrap: anywhere; }
+
+/* Admin questions editor: card per question inside the type's row. */
+.q-editor { margin: 0.5rem 0 0.75rem; }
+.q-editor .q-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.625rem; }
+.q-editor .q-card-head { display: flex; flex-wrap: wrap; gap: 0.625rem; align-items: center; }
+.q-editor .q-card-head input { flex: 1 1 14rem; }
+.q-editor .q-card-head select { flex: none; }
+.q-editor .q-choices { margin-top: 0.625rem; display: flex; flex-direction: column; gap: 0.375rem; }
+.q-editor .q-choices textarea { font-family: inherit; }
+.q-editor .q-card-tail { display: flex; flex-wrap: wrap; gap: 0.625rem; align-items: center; justify-content: space-between; margin-top: 0.625rem; }
+.q-editor .q-card-moves { display: flex; gap: 0.375rem; }
+.q-check { display: inline-flex; align-items: center; gap: 0.375rem; font-size: var(--fs-secondary); font-weight: 550; }
+.q-check input { width: 1.0625rem; height: 1.0625rem; accent-color: var(--accent); }
+.q-check input[type="number"] { width: 5.5rem; height: auto; padding: 0.45rem 0.625rem; }
 /* Invisible vertical padding plus the shared 2.75rem floor grow the touch
  * target to the same 44px bar the rest of the UI meets, without shifting
  * the row's baseline; horizontal padding would spill past the viewport edge

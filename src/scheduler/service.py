@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from . import availability as av
 from . import dapier as dapier_mod
 from . import emailer
+from . import models
 from . import security, store
 from .calendar import (AuthLost, CalendarError, ConflictDetected, DefinitiveFailure,
                        IncompleteResult, UnknownOutcome)
@@ -167,8 +168,8 @@ def _existing_for_limits(window_lo: str, window_hi: str) -> list[dict]:
 
 
 def _provider_event_payload(*, event_type: EventType, invitee_name: str, invitee_email: str,
-                            notes: str, start: datetime, end: datetime, schedule_tz: str,
-                            location_link: str = "") -> dict:
+                            notes: str, answers: dict | None, start: datetime, end: datetime,
+                            schedule_tz: str, location_link: str = "") -> dict:
     location = event_type.location_text
     if event_type.location_mode == "fixed_url":
         location = event_type.location_text
@@ -176,7 +177,7 @@ def _provider_event_payload(*, event_type: EventType, invitee_name: str, invitee
         location = "Joining details will be provided separately."
     body: dict = {
         "summary": f"{event_type.title}: {invitee_name}",
-        "description": (notes or "")[:2000],
+        "description": models.format_answers(event_type.questions, answers or {}, notes)[:2000],
         "start": {"dateTime": start.isoformat(), "timeZone": schedule_tz},
         "end": {"dateTime": end.isoformat(), "timeZone": schedule_tz},
         "attendees": [{"email": invitee_email}],
@@ -345,6 +346,7 @@ def create_booking(*, event_type_id: str, duration_min: int, start_iso: str, nam
             calendar_id,
             _provider_event_payload(event_type=event_type, invitee_name=name.strip(),
                                     invitee_email=email.strip().lower(), notes=notes or "",
+                                    answers=answers,
                                     start=start, end=end,
                                     schedule_tz=schedule.get("timezone", "Europe/Berlin")),
             correlation)
@@ -970,11 +972,17 @@ def _notification_content(item: dict, booking: dict) -> tuple[str, str]:
                     manage_url=item.get("manage_url") or f"{base_url}/receipt",
                     reference=booking["reference"]))
     if kind == "host_notice":
+        # The host reads people, not ids: answers are labeled with the
+        # question text they were asked under at booking time.
+        item_type = store.get_event_type(booking.get("event_type_id", "")) or {}
+        agenda = models.format_answers(item_type.get("questions", []),
+                                       booking.get("answers", {}),
+                                       booking.get("notes", ""))
         return (f"New booking: {title}",
                 emailer.render_host_notice(event_title=title, start_human=when,
                                            invitee_name=booking.get("invitee_name", ""),
                                            invitee_email=booking.get("invitee_email", ""),
-                                           agenda=booking.get("notes", "")))
+                                           agenda=agenda))
     return (emailer.confirmation_subject(title),
             emailer.render_confirmation(
                 event_title=title, start_human=when,

@@ -193,9 +193,37 @@ def booking_page(item, host_name, viewer_tz="UTC"):
         qid = _esc(question.get("id", ""))
         required = " required" if question.get("required") else ""
         limit = int(question.get("max_length", 2000))
-        # A 500-character answer only ever shows its tail in a one-line
-        # input; long prompts get a reviewable textarea and a live counter.
-        if limit >= 200:
+        qtype = question.get("type")
+        if qtype is None:
+            # Legacy questions predate explicit types: length decides.
+            qtype = "textarea" if limit >= 200 else "text"
+        label = _esc(question.get("label", qid))
+        if qtype == "single_choice":
+            choices = []
+            for choice in question.get("choices", []):
+                choices.append(
+                    f"<label class=\"choice\"><input type=\"radio\" name=\"q-{qid}\" "
+                    f"value=\"{_esc(choice)}\" data-question=\"{qid}\""
+                    f"{required}> {_esc(choice)}</label>")
+            if question.get("allow_other"):
+                # "Other" hands the free-text field the mic: picking the radio
+                # focuses the input, and the answer is the typed text itself.
+                choices.append(
+                    f"<label class=\"choice\"><input type=\"radio\" name=\"q-{qid}\" "
+                    f"value=\"\" data-question=\"{qid}\" data-other-radio"
+                    f"{required}> Other</label>"
+                    f"<input class=\"other-input\" data-question=\"{qid}\" data-other-input "
+                    f"maxlength=\"{limit}\" aria-label=\"Other — please specify\">")
+            questions.append(
+                f"<div class=\"field choice-field\" data-choice-group=\"{qid}\">"
+                f"<span class=\"q-label\">{label}{' *' if question.get('required') else ''}</span>"
+                f"{''.join(choices)}"
+                f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
+            continue
+        # An explicit textarea type gets the reviewable multiline control and
+        # a live counter; a declared short answer stays one line whatever its
+        # cap, so an optional 200-character company field reads as one.
+        if qtype == "textarea":
             control = (f"<textarea id=\"q-{qid}\" data-question=\"{qid}\" rows=\"3\" "
                        f"maxlength=\"{limit}\"{required}></textarea>")
             counter = "<span class=\"char-count\" aria-live=\"polite\"></span>"
@@ -203,7 +231,7 @@ def booking_page(item, host_name, viewer_tz="UTC"):
             control = f"<input id=\"q-{qid}\" data-question=\"{qid}\" maxlength=\"{limit}\"{required}>"
             counter = ""
         questions.append(
-            f"<div class=\"field\"><label for=\"q-{qid}\">{_esc(question.get('label', qid))}</label>"
+            f"<div class=\"field\"><label for=\"q-{qid}\">{label}</label>"
             f"{control}{counter}"
             f"<span class=\"error\" id=\"err-q-{qid}\" role=\"alert\"></span></div>")
     valid_viewer_tz = viewer_tz if is_valid_zone(viewer_tz) else "UTC"
@@ -308,7 +336,28 @@ def _human_when(booking):
         return f"{_esc(start)} – {_esc(end)} ({_esc(tz)})"
 
 
-def manage_page(*, booking, token, ics_url, durations, event_title="", host_name=""):
+def _answers_block(questions, booking) -> str:
+    """The invitee's own answers, labeled as they were asked. Rows without a
+    matching configured question keep their id label so nothing disappears."""
+    answers = booking.get("answers") or {}
+    if not any(str(v or "").strip() for v in answers.values()):
+        return ""
+    labels = {str(q.get("id", "")): str(q.get("label", "") or q.get("id", ""))
+              for q in questions or []}
+    rows = []
+    for key, value in answers.items():
+        text = str(value or "").strip()
+        if not text:
+            continue
+        rows.append(f"<div class=\"answer\"><span class=\"q\">{_esc(labels.get(str(key), str(key)))}</span>"
+                    f"<span class=\"a\">{_esc(text)}</span></div>")
+    if not rows:
+        return ""
+    return f"<div class=\"manage-answers\"><h2>Your answers</h2>{''.join(rows)}</div>"
+
+
+def manage_page(*, booking, token, ics_url, durations, event_title="", host_name="",
+                questions=None):
     status = booking.get("status", "")
     pending = booking.get("pending_action", "")
     headline = {"confirmed": "Booking confirmed", "canceled": "Booking canceled"}.get(status, "Booking")
@@ -397,6 +446,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
 <div class="row-line"><span class="label">Joining</span><span>{joining_html}</span></div>
 </div>
 <p><a class="btn secondary sm" href="{_esc(ics_url)}">{icon('download', 'ic')} Add to calendar (.ics)</a></p>
+{_answers_block(questions or [], booking)}
 {_status_box('manage-status', 'Opening this page changes nothing. Canceling or rescheduling needs the explicit action below.')}
 </div>
 {reschedule}

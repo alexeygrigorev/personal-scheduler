@@ -74,7 +74,10 @@ def _public_type_view(item: dict) -> dict:
             "location_mode": item.get("location_mode", "fixed_text"),
             "location_text": item.get("location_text", "") if item.get("location_mode") != "auto_meet" else "",
             "questions": [{"id": q.get("id"), "label": q.get("label"),
-                           "required": bool(q.get("required"))}
+                           "type": q.get("type", "text"),
+                           "required": bool(q.get("required")),
+                           "choices": [str(c) for c in q.get("choices", [])],
+                           "allow_other": bool(q.get("allow_other"))}
                           for q in item.get("questions", [])]}
 
 
@@ -300,7 +303,8 @@ def _serve_manage_page(token):
     return render.manage_page(booking=booking, token=token,
                               ics_url=f"/api/v1/manage/{token}/ics", durations=durations,
                               event_title=str(item.get("title", "") or ""),
-                              host_name=str(host.get("display_name", "") or ""))
+                              host_name=str(host.get("display_name", "") or ""),
+                              questions=item.get("questions", []))
 
 
 def _serve_receipt(operation_id):

@@ -16,6 +16,8 @@ BOOKING_STATUSES = ("pending_confirmation", "confirmed", "canceled", "failed")
 OPERATION_KINDS = ("create", "reschedule", "cancel")
 OPERATION_STATES = ("not_attempted", "in_progress", "unknown", "succeeded", "failed")
 LOCATION_MODES = ("fixed_text", "fixed_url", "auto_meet", "provided_later")
+QUESTION_TYPES = ("text", "textarea", "single_choice")
+MAX_QUESTION_ANSWER = 5000
 
 
 def utcnow() -> datetime:
@@ -74,6 +76,7 @@ class EventType:
             errors.append("invalid slug")
         if self.location_mode not in LOCATION_MODES:
             errors.append("invalid location_mode")
+        errors.extend(validate_questions(self.questions))
         return errors
 
     def durations_offered(self) -> list[int]:
@@ -145,6 +148,19 @@ def seed_event_types() -> list[EventType]:
             description="General chat.",
             duration_mode="fixed", fixed_duration_min=30,
             visibility="listed", schedule_id="default", position=2,
+            # Mirrors the questions the host asks on the Calendly 30-minute
+            # page this link replaces; editable in the admin console.
+            questions=[
+                {"id": "talk-about", "label": "What would you like to talk about?",
+                 "type": "single_choice", "required": False, "max_length": 500,
+                 "choices": ["Meet & greet / networking", "Sponsoring DataTalks.Club",
+                             "Corporate training"],
+                 "allow_other": True},
+                {"id": "discuss", "label": "What would you like to discuss?",
+                 "type": "textarea", "required": True, "max_length": 2000},
+                {"id": "company", "label": "Company name",
+                 "type": "text", "required": False, "max_length": 200},
+            ],
         ),
         EventType(
             id="general-60", slug="60min",
@@ -195,6 +211,39 @@ def validate_duration(event_type: EventType, duration_min) -> tuple[bool, str]:
     return True, ""
 
 
+def validate_questions(questions) -> list[str]:
+    """Config-side gate for invitee questions: a bad config must fail the
+    admin save, not surface as a broken booking form."""
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    for position, question in enumerate(questions or [], start=1):
+        where = f"question {position}"
+        if not isinstance(question, dict):
+            errors.append(f"{where}: malformed")
+            continue
+        qtype = question.get("type", "text")
+        if qtype not in QUESTION_TYPES:
+            errors.append(f"{where}: unknown type '{qtype}'")
+        label = str(question.get("label", "")).strip()
+        if not label:
+            errors.append(f"{where}: label is required")
+        qid = str(question.get("id", "")).strip()
+        if not qid or qid in seen_ids:
+            errors.append(f"{where}: duplicate or missing id")
+        seen_ids.add(qid)
+        try:
+            limit = int(question.get("max_length", 2000))
+        except (TypeError, ValueError):
+            limit = 0
+        if not 1 <= limit <= MAX_QUESTION_ANSWER:
+            errors.append(f"{where}: max_length must be 1–{MAX_QUESTION_ANSWER}")
+        if qtype == "single_choice":
+            choices = [str(c).strip() for c in question.get("choices", []) if str(c).strip()]
+            if len(choices) < 2:
+                errors.append(f"{where}: a single-choice question needs at least two options")
+    return errors
+
+
 def validate_invitee(name, email, questions, answers, require_agenda=False, notes=""):
     errors: dict[str, str] = {}
     if not (name or "").strip():
@@ -210,12 +259,40 @@ def validate_invitee(name, email, questions, answers, require_agenda=False, note
         errors["agenda"] = "Purpose / agenda is required for this meeting type."
     for question in questions or []:
         qid = question.get("id", "")
-        value = (answers or {}).get(qid, "")
-        if question.get("required") and not str(value or "").strip():
-            errors[f"q:{qid}"] = f"'{question.get('label', qid)}' is required."
-        if len(str(value or "")) > int(question.get("max_length", 2000)):
+        value = str((answers or {}).get(qid, "") or "").strip()
+        label = question.get("label", qid)
+        if question.get("required") and not value:
+            errors[f"q:{qid}"] = f"'{label}' is required."
+            continue
+        if not value:
+            continue
+        if len(value) > int(question.get("max_length", 2000)):
             errors[f"q:{qid}"] = "Answer is too long."
+            continue
+        if question.get("type", "text") == "single_choice":
+            choices = [str(c) for c in question.get("choices", [])]
+            if value not in choices and not question.get("allow_other"):
+                errors[f"q:{qid}"] = "Pick one of the listed options."
     return errors
+
+
+def format_answers(questions, answers, notes="") -> str:
+    """Invitee-provided context for the host notice and the calendar event
+    description (spec 9.2: only appropriate invitee context, never private
+    notes or tokens). Unlabeled answers fall back to their question id."""
+    lines = []
+    notes_text = (notes or "").strip()
+    if notes_text:
+        lines.append(f"Agenda: {notes_text}")
+    labels = {str(q.get("id", "")): str(q.get("label", "") or q.get("id", ""))
+              for q in questions or []}
+    for key, value in (answers or {}).items():
+        text = str(value or "").strip()
+        if not text:
+            continue
+        label = labels.get(str(key), str(key))
+        lines.append(f"{label}: {text}")
+    return "\n".join(lines)
 
 
 def canonical_payload(payload: dict) -> str:

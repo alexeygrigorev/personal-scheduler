@@ -40,9 +40,12 @@ def env(table):
 
 
 def book(env, **overrides):
+    # dtc-30 seeds a required question (mirroring the host's Calendly page),
+    # so the default payload answers it; explicit overrides replace it whole.
     params = {"event_type_id": "dtc-30", "duration_min": 30,
               "start_iso": berlin(6, 10, "09:00").isoformat(),
               "name": "Ada", "email": "ada@example.com",
+              "answers": {"discuss": "Scheduler migration chat"},
               "idempotency_key": f"key-{len(env.provider.events)}-{berlin(6,10,'09:00').isoformat()}",
               "dapier_client": env.dapier, "provider": env.provider, "now": NOW}
     params.update(overrides)
@@ -98,7 +101,9 @@ def test_double_submit_returns_the_same_booking(env):
     first = book(env, idempotency_key="b04")
     params = {"event_type_id": "dtc-30", "duration_min": 30,
               "start_iso": berlin(6, 10, "09:00").isoformat(),
-              "name": "Ada", "email": "ada@example.com", "idempotency_key": "b04",
+              "name": "Ada", "email": "ada@example.com",
+              "answers": {"discuss": "Scheduler migration chat"},
+              "idempotency_key": "b04",
               "dapier_client": env.dapier, "provider": env.provider, "now": NOW}
     second = service.create_booking(**params)
     assert second["duplicate"] is True
@@ -237,6 +242,23 @@ def test_email_failure_keeps_the_booking_confirmed(env):
     env.email.fail_next = 0
     handled = service.process_due_notifications(env.email, now=NOW)
     assert handled["sent"] > 0
+
+
+def test_answers_reach_the_calendar_event_and_the_host_notice(env):
+    """Spec 9.2/12: the host reads the invitee's context in both the event
+    description and the new-booking email, labeled as it was asked."""
+    created = book(env, idempotency_key="qa-1",
+                   answers={"talk-about": "Corporate training",
+                            "discuss": "Upskilling the team"},
+                   notes="")
+    event = next(iter(env.provider.events.values()))
+    description = event["description"]
+    assert "What would you like to talk about?: Corporate training" in description
+    assert "What would you like to discuss?: Upskilling the team" in description
+    service.process_due_notifications(env.email, now=NOW)
+    host_notice = next(m for m in env.email.outbox if m["to"] == "host@example.com")
+    assert "What would you like to talk about?: Corporate training" in host_notice["text"]
+    assert created["booking"]["reference"]
 
 
 def test_invalid_management_token_reveals_nothing(env):

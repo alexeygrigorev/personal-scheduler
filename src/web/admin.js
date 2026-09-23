@@ -314,6 +314,22 @@
         if (ev.key === "Escape" && toggle.dataset.armed) disarm();
       });
       stack.appendChild(toggle);
+      const edit = el("button", "Questions");
+      edit.className = "btn sm secondary";
+      edit.setAttribute("aria-expanded", "false");
+      edit.addEventListener("click", () => {
+        // One editor per type at a time: an open editor row directly below
+        // means this is a toggle, not an invitation to stack panels.
+        const next = row.nextElementSibling;
+        if (next && next.querySelector(".q-editor")) {
+          next.remove();
+          edit.setAttribute("aria-expanded", "false");
+          return;
+        }
+        edit.setAttribute("aria-expanded", "true");
+        openQuestionsEditor(t, row);
+      });
+      stack.appendChild(edit);
       const preview = el("a", "Preview");
       preview.href = `/${t.slug}`;
       preview.className = "btn sm secondary";
@@ -332,6 +348,195 @@
     note.setAttribute("role", "alert");
     container.prepend(note);
     setTimeout(() => note.remove(), 4000);
+  }
+
+  // --- booking questions editor ---------------------------------------------
+  // The questions a visitor answers after picking a time. Everything here is
+  // host-owned configuration: labels, answer types, required flags, choice
+  // lists, and order, saved as one replacement with the expected version.
+  const QUESTION_KINDS = [["text", "Short answer"], ["textarea", "Long text"],
+                          ["single_choice", "Single choice"]];
+
+  function normalizeQuestion(raw, index) {
+    return {
+      id: raw.id || `q-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      label: raw.label || "",
+      type: QUESTION_KINDS.some(([kind]) => kind === raw.type) ? raw.type : "text",
+      required: !!raw.required,
+      max_length: Math.min(Math.max(parseInt(raw.max_length, 10) || 2000, 1), 5000),
+      choices: (raw.choices || []).map((c) => String(c)),
+      allow_other: !!raw.allow_other,
+    };
+  }
+
+  function questionCard(item, index, items, rerender) {
+    const card = el("div");
+    card.className = "q-card";
+    const head = el("div");
+    head.className = "q-card-head";
+    const labelInput = el("input");
+    labelInput.value = item.label;
+    labelInput.placeholder = "Question visitors see";
+    labelInput.setAttribute("aria-label", `Question ${index + 1} label`);
+    labelInput.addEventListener("input", () => { item.label = labelInput.value; });
+    head.appendChild(labelInput);
+    const typeSelect = el("select");
+    typeSelect.setAttribute("aria-label", `Question ${index + 1} answer type`);
+    for (const [kind, name] of QUESTION_KINDS) typeSelect.appendChild(new Option(name, kind));
+    typeSelect.value = item.type;
+    typeSelect.addEventListener("change", () => { item.type = typeSelect.value; rerender(); });
+    head.appendChild(typeSelect);
+    const required = el("label");
+    required.className = "q-check";
+    const requiredBox = el("input");
+    requiredBox.type = "checkbox";
+    requiredBox.checked = item.required;
+    requiredBox.addEventListener("change", () => { item.required = requiredBox.checked; });
+    required.appendChild(requiredBox);
+    required.appendChild(document.createTextNode("Required"));
+    head.appendChild(required);
+    card.appendChild(head);
+    if (item.type === "single_choice") {
+      const choicesField = el("div");
+      choicesField.className = "q-choices";
+      const choicesLabel = el("span", "Options — one per line");
+      choicesLabel.className = "hint";
+      choicesField.appendChild(choicesLabel);
+      const choicesInput = el("textarea");
+      choicesInput.rows = Math.max(3, item.choices.length + 1);
+      choicesInput.value = item.choices.join("\n");
+      choicesInput.setAttribute("aria-label", `Question ${index + 1} options`);
+      choicesInput.addEventListener("input", () => {
+        item.choices = choicesInput.value.split("\n");
+      });
+      choicesField.appendChild(choicesInput);
+      const other = el("label");
+      other.className = "q-check";
+      const otherBox = el("input");
+      otherBox.type = "checkbox";
+      otherBox.checked = item.allow_other;
+      otherBox.addEventListener("change", () => { item.allow_other = otherBox.checked; });
+      other.appendChild(otherBox);
+      other.appendChild(document.createTextNode("Include an \u201cOther\u201d free-text option"));
+      choicesField.appendChild(other);
+      card.appendChild(choicesField);
+    }
+    const tail = el("div");
+    tail.className = "q-card-tail";
+    const limitWrap = el("label");
+    limitWrap.className = "q-check";
+    const limitInput = el("input");
+    limitInput.type = "number";
+    limitInput.min = "1";
+    limitInput.max = "5000";
+    limitInput.value = String(item.max_length);
+    limitInput.setAttribute("aria-label", `Question ${index + 1} maximum answer length`);
+    limitInput.addEventListener("input", () => { item.max_length = parseInt(limitInput.value, 10) || 2000; });
+    limitWrap.appendChild(limitInput);
+    limitWrap.appendChild(document.createTextNode("Max characters"));
+    tail.appendChild(limitWrap);
+    const moves = el("div");
+    moves.className = "q-card-moves";
+    const up = el("button", "↑");
+    up.type = "button";
+    up.className = "btn sm secondary";
+    up.setAttribute("aria-label", `Move question ${index + 1} up`);
+    up.disabled = index === 0;
+    up.addEventListener("click", () => {
+      [items[index - 1], items[index]] = [items[index], items[index - 1]];
+      rerender();
+    });
+    const down = el("button", "↓");
+    down.type = "button";
+    down.className = "btn sm secondary";
+    down.setAttribute("aria-label", `Move question ${index + 1} down`);
+    down.disabled = index === items.length - 1;
+    down.addEventListener("click", () => {
+      [items[index + 1], items[index]] = [items[index], items[index + 1]];
+      rerender();
+    });
+    const remove = el("button", "Remove");
+    remove.type = "button";
+    remove.className = "btn sm danger";
+    remove.setAttribute("aria-label", `Remove question ${index + 1}`);
+    remove.addEventListener("click", () => { items.splice(index, 1); rerender(); });
+    moves.append(up, down, remove);
+    tail.appendChild(moves);
+    card.appendChild(tail);
+    return card;
+  }
+
+  function openQuestionsEditor(t, hostRow) {
+    const editorRow = el("tr");
+    const cell = el("td");
+    cell.colSpan = 5;
+    editorRow.appendChild(cell);
+    const panel = el("div");
+    panel.className = "panel q-editor";
+    panel.setAttribute("aria-label", `Booking questions for ${t.title}`);
+    const items = (t.questions || []).map(normalizeQuestion);
+    let rerender;
+    const save = el("button", "Save questions");
+    save.type = "button";
+    save.className = "btn";
+    const close = el("button", "Close");
+    close.type = "button";
+    close.className = "btn secondary";
+    close.addEventListener("click", () => editorRow.remove());
+    const list = el("div");
+    rerender = () => {
+      list.replaceChildren(...items.map((item, i) => questionCard(item, i, items, rerender)));
+      if (!items.length) {
+        list.appendChild(el("p", "No questions yet — visitors are only asked for name and email."));
+      }
+    };
+    rerender();
+    const head = el("div");
+    head.className = "panel-head";
+    head.appendChild(el("h2", "Booking questions"));
+    const add = el("button", "Add question");
+    add.type = "button";
+    add.className = "btn sm secondary";
+    add.addEventListener("click", () => {
+      items.push(normalizeQuestion({}, items.length));
+      rerender();
+    });
+    head.appendChild(add);
+    panel.appendChild(head);
+    const intro = el("p", "Asked after a visitor picks a time. Answers reach you in the booking email and on the calendar event.");
+    intro.className = "hint";
+    panel.appendChild(intro);
+    panel.appendChild(list);
+    const foot = el("div");
+    foot.className = "form-actions";
+    const note = el("span");
+    note.className = "saved-note";
+    note.setAttribute("role", "status");
+    foot.append(save, close, note);
+    panel.appendChild(foot);
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      note.classList.remove("error", "visible");
+      const clean = items
+        .map((q) => ({ ...q, label: q.label.trim(), choices: q.choices.map((c) => c.trim()).filter(Boolean) }))
+        .filter((q) => q.label || q.choices.length);
+      try {
+        await call(`/event-types/${t.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ questions: clean, expected_version: t.version }),
+        });
+        note.textContent = "Saved";
+        note.classList.add("visible");
+        setTimeout(() => { note.classList.remove("visible"); editorRow.remove(); loadTypes(); }, 900);
+      } catch (err) {
+        save.disabled = false;
+        note.textContent = `Could not save — ${why(err)}.`;
+        note.setAttribute("role", "alert");
+        note.classList.add("error", "visible");
+      }
+    });
+    cell.appendChild(panel);
+    hostRow.after(editorRow);
   }
 
   async function loadBookings() {

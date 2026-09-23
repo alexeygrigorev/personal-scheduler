@@ -113,6 +113,7 @@ def test_availability_response_carries_no_private_data(live):
 def test_booking_flow_end_to_end(live):
     res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
         "type": "dtc", "duration": 30, "start": berlin(6, "09:00").isoformat(),
+        "answers": {"discuss": "Scheduler migration chat"},
         "name": "Ada", "email": "ada@example.com", "tz": "Europe/Berlin",
         "idempotency_key": "e2e-1"})
     assert res.statusCode == 201, res["body"]
@@ -133,6 +134,7 @@ def test_opening_a_management_link_never_mutates(live):
     """B13: scanners and accidental visits change nothing; cancel is explicit."""
     res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
         "type": "dtc", "duration": 30, "start": berlin(7, "09:00").isoformat(),
+        "answers": {"discuss": "Scheduler migration chat"},
         "name": "Ada", "email": "ada@example.com", "idempotency_key": "scan-1"})
     path = json.loads(res["body"])["manage_url"].replace("https://scheduler.test", "")
     assert call(public_handler.lambda_handler, path).statusCode == 200
@@ -147,6 +149,7 @@ def test_opening_a_management_link_never_mutates(live):
 def test_management_cancel_and_ics(live):
     res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
         "type": "dtc", "duration": 30, "start": berlin(8, "09:00").isoformat(),
+        "answers": {"discuss": "Scheduler migration chat"},
         "name": "Ada", "email": "ada@example.com", "idempotency_key": "m-1"})
     base = json.loads(res["body"])["manage_url"].replace("https://scheduler.test", "")
     token = base.split("/m/")[1]
@@ -163,6 +166,7 @@ def test_management_status_probe_is_read_only_and_minimal(live):
     opening it changes nothing — it must be as safe as the page itself."""
     res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
         "type": "dtc", "duration": 30, "start": berlin(9, "09:00").isoformat(),
+            "answers": {"discuss": "Scheduler migration chat"},
         "name": "Ada", "email": "ada@example.com", "idempotency_key": "m-2"})
     base = json.loads(res["body"])["manage_url"].replace("https://scheduler.test", "")
     token = base.split("/m/")[1]
@@ -219,6 +223,7 @@ def test_pending_operation_has_a_status_view(live):
     try:
         res = call(public_handler.lambda_handler, "/api/v1/bookings", method="POST", body={
             "type": "dtc", "duration": 30, "start": berlin(9, "09:00").isoformat(),
+            "answers": {"discuss": "Scheduler migration chat"},
             "name": "Ada", "email": "ada@example.com", "idempotency_key": "pend-1"})
     finally:
         security_mod.new_id = real_new_id
