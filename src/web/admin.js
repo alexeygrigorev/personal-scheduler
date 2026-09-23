@@ -263,6 +263,18 @@
   // The one open questions editor across the table, as { button, editorRow }.
   let openEditor = null;
 
+  // Every path that dismisses the editor funnels through here: the row
+  // goes, the Edit button stops claiming expansion, and the singleton
+  // forgets the record. Missing any one of the three strands the button's
+  // aria state or makes the next click on it a swallowed no-op, because
+  // the stale record still answers "this one was open".
+  function closeEditor() {
+    if (!openEditor) return;
+    openEditor.button.setAttribute("aria-expanded", "false");
+    openEditor.editorRow.remove();
+    openEditor = null;
+  }
+
   async function loadTypes() {
     openEditor = null;
     const data = await call("/event-types");
@@ -350,11 +362,7 @@
         // editor closes the open one, and clicking this button while its
         // own editor is up toggles it away.
         const wasOpen = openEditor && openEditor.button === edit;
-        if (openEditor) {
-          openEditor.editorRow.remove();
-          openEditor.button.setAttribute("aria-expanded", "false");
-          openEditor = null;
-        }
+        closeEditor();
         if (wasOpen) return;
         edit.setAttribute("aria-expanded", "true");
         openEditor = { button: edit, editorRow: openQuestionsEditor(t, row) };
@@ -555,7 +563,7 @@
     const close = el("button", "Close");
     close.type = "button";
     close.className = "btn secondary";
-    close.addEventListener("click", () => editorRow.remove());
+    close.addEventListener("click", () => closeEditor());
     const list = el("div");
     rerender = () => {
       list.replaceChildren(...items.map((item, i) => questionCard(item, i, items, rerender)));
@@ -633,7 +641,16 @@
         });
         note.textContent = "Saved";
         note.classList.add("visible");
-        setTimeout(() => { note.classList.remove("visible"); editorRow.remove(); loadTypes(); }, 900);
+        setTimeout(() => {
+          // Only tear down while this editor is still the open one: an
+          // admin who opened another type's editor during the pause must
+          // not have it wiped by the trailing table reload.
+          note.classList.remove("visible");
+          if (openEditor && openEditor.editorRow === editorRow) {
+            closeEditor();
+            loadTypes();
+          }
+        }, 900);
       } catch (err) {
         save.disabled = false;
         note.textContent = `Could not save — ${why(err)}.`;
