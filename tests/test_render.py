@@ -1,5 +1,7 @@
 """Receipt page content fidelity: joining details must travel with the
 receipt, in the three conference states the store can produce."""
+import re
+
 from scheduler import render
 
 BOOKING = {
@@ -65,6 +67,27 @@ def test_print_stylesheet_strips_the_sheet_to_the_record():
     block = css.split("@media print", 1)[1]
     for selector in (".site-head", ".site-foot", ".form-actions"):
         assert selector in block
+
+
+def test_dark_scheme_answers_every_color_token():
+    # The OS picks the palette, so a color token born in :root but missed by
+    # the dark block renders its light value on dark surfaces — invisible
+    # text, blinding washes. Every color token must have a dark answer, and
+    # the page must declare both schemes so UA widgets follow along.
+    css = (render.WEB_DIR / "app.css").read_text()
+    assert "color-scheme: light dark" in css
+    root = css.split(":root {", 1)[1].split("\n}", 1)[0]
+    color_tokens = re.findall(r"^  (--[a-z0-9-]+): (?:#|rgba)", root, re.M)
+    assert color_tokens, "no color tokens found in :root"
+    dark = css.split("@media (prefers-color-scheme: dark)", 1)[1]
+    dark_root = dark.split(":root {", 1)[1].split("\n  }\n}", 1)[0]
+    for token in color_tokens:
+        assert re.search(rf"^\s*{re.escape(token)}:", dark_root, re.M), \
+            f"{token} has no dark value"
+    # White labels sit on --accent-fill; the fixed light-theme fill is what
+    # keeps them at 4.5:1, so the dark block must not lighten it.
+    assert "--accent-fill: #4f46e5;" in root
+    assert "--accent-fill: #4f46e5;" in dark_root
 
 
 def _booking_page(questions=()):

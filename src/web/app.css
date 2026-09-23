@@ -4,6 +4,10 @@
  * the app ships no external assets. */
 
 :root {
+  /* The page ships both palettes and lets the OS pick; the dark values live
+   * in the dark-scheme section at the foot of this file. */
+  color-scheme: light dark;
+
   /* color */
   --bg: #f6f7fb;
   --surface: #ffffff;
@@ -14,8 +18,15 @@
   --line-strong: #8792a6;
   --accent: #4f46e5;
   --accent-strong: #4338ca;
+  --accent-hi: #5b52ee;
   --accent-soft: #eef2ff;
+  --accent-soft-2: #e0e7ff;
   --accent-border: #c7d2fe;
+  /* Filled controls (primary buttons, picked day/time/duration) keep one
+   * fixed indigo body in both schemes: their white labels need this exact
+   * value for 4.5:1, and a brand fill reads on any canvas. */
+  --accent-fill: #4f46e5;
+  --accent-fill-strong: #4338ca;
   --ok: #067647;
   --ok-soft: #ecfdf3;
   --ok-border: #a9efc5;
@@ -27,6 +38,10 @@
   --warn: #b54708;
   --warn-border: #fedf89;
   --focus: #1d4fd6;
+  --focus-halo: rgba(29, 79, 214, 0.12);
+  --header-glass: rgba(255, 255, 255, 0.86);
+  --shimmer-a: #eceff5;
+  --shimmer-b: #f7f8fb;
 
   /* shape + elevation */
   --r-card: 16px;
@@ -35,6 +50,12 @@
   --shadow-card: 0 1px 2px rgba(22, 35, 59, 0.05), 0 4px 16px rgba(22, 35, 59, 0.06);
   --shadow-pop: 0 2px 4px rgba(22, 35, 59, 0.06), 0 12px 32px rgba(22, 35, 59, 0.12);
   --glow-accent: 0 6px 18px rgba(79, 70, 229, 0.24);
+
+  /* the duotone wash behind the top of every page */
+  --page-wash:
+    radial-gradient(56rem 22rem at 12% -6rem, rgba(79, 70, 229, 0.07), transparent 60%),
+    radial-gradient(44rem 18rem at 88% -8rem, rgba(56, 132, 255, 0.05), transparent 62%),
+    var(--bg);
 
   /* type scale */
   --fs-h1: clamp(1.625rem, 1.35rem + 1.2vw, 2rem);
@@ -48,12 +69,10 @@
 
 [hidden] { display: none !important; }
 
-/* The page wash: a faint duotone glow behind the top of every page. */
+/* The page wash: a faint duotone glow behind the top of every page.
+ * Tokenized so the dark scheme can retune the glow for its canvas. */
 html {
-  background:
-    radial-gradient(56rem 22rem at 12% -6rem, rgba(79, 70, 229, 0.07), transparent 60%),
-    radial-gradient(44rem 18rem at 88% -8rem, rgba(56, 132, 255, 0.05), transparent 62%),
-    var(--bg);
+  background: var(--page-wash);
 }
 
 body {
@@ -74,7 +93,7 @@ body {
 
 .site-head {
   position: sticky; top: 0; z-index: 30;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--header-glass);
   -webkit-backdrop-filter: blur(10px) saturate(1.4);
   backdrop-filter: blur(10px) saturate(1.4);
   border-bottom: 1px solid var(--line);
@@ -84,7 +103,7 @@ body {
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 2.25rem; height: 2.25rem; border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent-soft), #e0e7ff);
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent-soft-2));
   border: 1px solid var(--accent-border);
   color: var(--accent-strong); font-weight: 700; font-size: 0.8125rem; letter-spacing: 0.02em;
 }
@@ -142,7 +161,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   border: 1px solid transparent; border-radius: var(--r-ctrl);
-  background: linear-gradient(180deg, #5b52ee 0%, var(--accent) 100%);
+  background: linear-gradient(180deg, var(--accent-hi) 0%, var(--accent-fill) 100%);
   color: #fff;
   padding: 0.625rem 1.25rem; min-height: 2.75rem;
   font-weight: 600; font-size: var(--fs-body); line-height: 1.2;
@@ -152,7 +171,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
     box-shadow 140ms ease, transform 140ms ease;
 }
 .btn:hover {
-  background: linear-gradient(180deg, #4f46e5 0%, var(--accent-strong) 100%);
+  background: linear-gradient(180deg, var(--accent-fill) 0%, var(--accent-fill-strong) 100%);
   color: #fff; transform: translateY(-1px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 4px rgba(22, 35, 59, 0.14),
     var(--glow-accent);
@@ -216,7 +235,7 @@ main.landing {
 .avatar {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 4.25rem; height: 4.25rem; border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent-soft), #e0e7ff);
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent-soft-2));
   border: 1px solid var(--accent-border);
   box-shadow: 0 0 0 4px var(--surface), 0 2px 10px rgba(79, 70, 229, 0.16);
   color: var(--accent-strong); font-weight: 700; font-size: 1.375rem;
@@ -235,7 +254,7 @@ main.landing {
 .card .card-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 2.5rem; height: 2.5rem; border-radius: var(--r-chip);
-  background: linear-gradient(135deg, var(--accent-soft), #e0e7ff);
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent-soft-2));
   color: var(--accent-strong);
   margin-bottom: 0.625rem;
 }
@@ -322,11 +341,11 @@ legend { padding: 0; font-weight: 650; font-size: var(--fs-body); margin-bottom:
   position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer;
 }
 .segmented label:has(input:checked) {
-  background: linear-gradient(180deg, #5b52ee, var(--accent));
-  border-color: var(--accent); color: #fff;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-fill));
+  border-color: var(--accent-fill); color: #fff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(22, 35, 59, 0.2);
 }
-.segmented label:has(input:checked):hover { background: var(--accent-strong); }
+.segmented label:has(input:checked):hover { background: var(--accent-fill-strong); }
 .segmented label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* toolbar above the calendar */
@@ -347,7 +366,7 @@ select:hover, input:hover, textarea:hover { border-color: var(--muted); }
 select:focus, input:focus, textarea:focus {
   outline: 2px solid var(--focus); outline-offset: 0;
   border-color: var(--focus);
-  box-shadow: 0 0 0 3px rgba(29, 79, 214, 0.12);
+  box-shadow: 0 0 0 3px var(--focus-halo);
 }
 textarea { width: 100%; resize: vertical; }
 
@@ -415,11 +434,11 @@ textarea { width: 100%; resize: vertical; }
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.18);
 }
 .day-grid button[aria-pressed="true"] {
-  background: linear-gradient(180deg, #5b52ee, var(--accent));
-  border-color: var(--accent); color: #fff;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-fill));
+  border-color: var(--accent-fill); color: #fff;
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
 }
-.day-grid button[aria-pressed="true"]:hover { background: var(--accent-strong); color: #fff; }
+.day-grid button[aria-pressed="true"]:hover { background: var(--accent-fill-strong); color: #fff; }
 /* Today is a ring around the number, never a dot: a dot in the accent color
  * mimics the availability affordance and invites clicks on dead cells. The
  * ring stays neutral on non-bookable days and follows the selection styles
@@ -451,11 +470,11 @@ textarea { width: 100%; resize: vertical; }
  * or the scroll leaves keyboard users stranded mid-page with no anchor. */
 .times button.focus-hint:focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .times button[aria-pressed="true"] {
-  background: linear-gradient(180deg, #5b52ee, var(--accent));
-  border-color: var(--accent); color: #fff;
+  background: linear-gradient(180deg, var(--accent-hi), var(--accent-fill));
+  border-color: var(--accent-fill); color: #fff;
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.32);
 }
-.times button[aria-pressed="true"]:hover { background: var(--accent-strong); color: #fff; }
+.times button[aria-pressed="true"]:hover { background: var(--accent-fill-strong); color: #fff; }
 
 .times-head {
   display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 0.75rem;
@@ -504,7 +523,7 @@ textarea { width: 100%; resize: vertical; }
 /* skeleton loading */
 .skeleton-row {
   height: 2.75rem; border-radius: var(--r-chip);
-  background: linear-gradient(100deg, #eceff5 40%, #f7f8fb 50%, #eceff5 60%);
+  background: linear-gradient(100deg, var(--shimmer-a) 40%, var(--shimmer-b) 50%, var(--shimmer-a) 60%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease infinite;
 }
@@ -556,7 +575,7 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
   min-height: 2.75rem; margin-bottom: 0;
   padding: 0.25rem 0;
 }
-.choice-field .choice input { width: 1.0625rem; height: 1.0625rem; flex: none; accent-color: var(--accent); }
+.choice-field .choice input { width: 1.0625rem; height: 1.0625rem; flex: none; accent-color: var(--accent-fill); }
 /* Focus reads at row scale, like the duration segmented control — a ring
    hugging the 17px circle alone is easy to lose. */
 .choice-field .choice:has(input:focus-visible) {
@@ -629,7 +648,7 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 .q-editor .q-error { display: block; margin-top: 0.5rem; color: var(--danger-strong); font-size: var(--fs-secondary); }
 .q-editor input[aria-invalid="true"], .q-editor textarea[aria-invalid="true"] { border-color: var(--danger); }
 .q-check { display: inline-flex; align-items: center; gap: 0.375rem; font-size: var(--fs-secondary); font-weight: 550; }
-.q-check input { width: 1.0625rem; height: 1.0625rem; accent-color: var(--accent); }
+.q-check input { width: 1.0625rem; height: 1.0625rem; accent-color: var(--accent-fill); }
 .q-check input[type="number"] { width: 5.5rem; height: auto; padding: 0.45rem 0.625rem; }
 /* Invisible vertical padding plus the shared 2.75rem floor grow the touch
  * target to the same 44px bar the rest of the UI meets, without shifting
@@ -865,6 +884,57 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- dark scheme ---------- */
+
+/* One palette per OS preference, same tokens. Everything sitting on the
+ * canvas shifts: ink lightens, lines brighten, the soft washes become
+ * translucent color, and the text accents lighten to hold their contrast
+ * ratios on dark surfaces. Filled controls do not shift — --accent-fill
+ * keeps its light-theme value so white labels stay at 4.5:1 in both. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1524;
+    --surface: #1a2132;
+    --ink: #e9edf6;
+    --muted: #a6afc3;
+    --faint: #8a94aa;
+    --line: #2b3450;
+    --line-strong: #5c688a;
+    --accent: #a5acff;
+    --accent-strong: #c3c8ff;
+    --accent-hi: #5b52ee;
+    --accent-soft: rgba(127, 134, 255, 0.16);
+    --accent-soft-2: rgba(127, 134, 255, 0.08);
+    --accent-border: rgba(165, 172, 255, 0.45);
+    --accent-fill: #4f46e5;
+    --accent-fill-strong: #4338ca;
+    --ok: #4ade80;
+    --ok-soft: rgba(74, 222, 128, 0.13);
+    --ok-border: rgba(74, 222, 128, 0.4);
+    --danger: #f87171;
+    --danger-strong: #fca5a5;
+    --danger-soft: rgba(248, 113, 113, 0.14);
+    --danger-border: rgba(248, 113, 113, 0.42);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251, 191, 36, 0.12);
+    --warn-border: rgba(251, 191, 36, 0.38);
+    --focus: #7ab0ff;
+    --focus-halo: rgba(122, 176, 255, 0.22);
+    --header-glass: rgba(15, 21, 36, 0.86);
+    --shimmer-a: #222b42;
+    --shimmer-b: #1a2236;
+    /* Elevation on dark comes from deeper black plus the border, not a
+     * heavier shadow; the accent glow reads as emitted light, so it stays. */
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 2px 4px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.5);
+    --glow-accent: 0 6px 18px rgba(127, 134, 255, 0.3);
+    --page-wash:
+      radial-gradient(56rem 22rem at 12% -6rem, rgba(127, 134, 255, 0.12), transparent 60%),
+      radial-gradient(44rem 18rem at 88% -8rem, rgba(56, 132, 255, 0.08), transparent 62%),
+      var(--bg);
   }
 }
 
