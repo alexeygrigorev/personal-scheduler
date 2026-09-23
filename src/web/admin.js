@@ -49,7 +49,12 @@
       // object here once rendered a blank editable form whose Save would
       // wipe the real config, and quietly degrade every zone-formatted
       // time. Throw instead — each section's failure card offers Retry.
-      settingsCache = await call("/settings");
+      // The same discipline for a 200 with no host payload: cached, it
+      // would pin every later Retry to the empty answer long after the
+      // server recovered, so it is judged before it reaches the cache.
+      const data = await call("/settings");
+      if (!data || !data.host) throw new Error("the server returned an empty settings payload");
+      settingsCache = data;
       const tz = (settingsCache.host || {}).timezone || "";
       const note = document.getElementById("tz-note");
       if (tz && note) note.textContent = `Times shown in ${tz} — the zone from Settings`;
