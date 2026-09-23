@@ -287,9 +287,11 @@
       failed.appendChild(retry);
       panel.appendChild(failed);
     } else if (!list.length) {
-      const empty = el("p", "Nothing booked ahead.");
-      empty.className = "hint";
-      panel.appendChild(empty);
+      // Same dashed grammar as the tabs' empty states: a lone hint line
+      // under the head reads as a lesser design system, and the first-run
+      // overview should point forward instead of dead-ending.
+      panel.appendChild(emptyPanel("Nothing booked ahead.",
+        "Confirmed bookings appear here. Share a booking link from your event types to fill the calendar."));
     }
     for (const b of list) {
       const row = el("div");
