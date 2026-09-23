@@ -186,6 +186,17 @@
       ev.preventDefault();
       disarm();
     });
+    // Escape is the keyboard's "stand down" on every other armed destructive
+    // control in this app (the admin console arms its two this way), so the
+    // armed cancel honors it too, and disarm() hands focus back to the
+    // Cancel button. While the request is in flight the row belongs to the
+    // request: disarming then would hide the button the error verdict
+    // refocuses.
+    cancelForm.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Escape" || confirmRow.hidden) return;
+      if (confirmRow.querySelector("button.confirm").disabled) return;
+      disarm();
+    });
   }
 
   // The note promises the outcome lands here on its own; a visitor who

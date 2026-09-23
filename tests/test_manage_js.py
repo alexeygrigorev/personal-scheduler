@@ -30,3 +30,19 @@ def test_a_reopened_pending_page_keeps_the_outcome_promise():
     # to start on load, fed the pending flag through the page's config.
     js = (render.WEB_DIR / "manage.js").read_text()
     assert "if (cfg.pendingCancel) waitForSettle();" in js
+
+
+def test_escape_disarms_the_armed_cancel():
+    # Every other armed destructive control in the app stands down on Escape
+    # (the admin console arms its two that way); the manage page's armed
+    # cancel confirm must behave the same, and disarm() hands focus back to
+    # the Cancel button so a keyboard visitor retreats in place. While the
+    # cancel request is in flight the row belongs to the request — disarming
+    # then would hide the very button the error verdict refocuses — so the
+    # handler checks the disabled confirm before retreating.
+    js = (render.WEB_DIR / "manage.js").read_text()
+    listener = js.split('cancelForm.addEventListener("keydown"', 1)[1]
+    guard = listener.split("disarm();", 1)[0]
+    assert 'ev.key !== "Escape"' in guard
+    assert "confirmRow.hidden" in guard
+    assert 'button.confirm").disabled' in guard
