@@ -118,7 +118,8 @@
     loading.setAttribute("aria-label", "Loading");
     for (let i = 0; i < 4; i++) loading.appendChild(el("div", "")).className = "skeleton-row";
     box.appendChild(loading);
-    loaders[section]().catch((err) => {
+    const settled = loaders[section]();
+    settled.catch((err) => {
       box.innerHTML = "";
       const panel = el("div");
       // A failed fetch is an error, not an empty shelf: the .error modifier
@@ -130,11 +131,18 @@
       const retry = el("button", "Retry");
       retry.className = "btn sm";
       retry.addEventListener("click", () => {
-        show(section);
+        const reloading = show(section);
         // The clicked Retry is about to be removed; hold keyboard position
-        // on the skeleton that replaces it instead of dumping to <body>.
+        // on the skeleton that replaces it instead of dumping to <body>,
+        // and on success land inside the reloaded section — the section box
+        // is the reading start, the next Tab walks its content.
         const skeleton = box.querySelector(".tab-loading");
         if (skeleton) { skeleton.tabIndex = -1; skeleton.focus({ preventScroll: true }); }
+        reloading.then(() => {
+          const reloaded = document.getElementById(section);
+          reloaded.tabIndex = -1;
+          reloaded.focus({ preventScroll: true });
+        }).catch(() => {});
       });
       panel.appendChild(retry);
       box.appendChild(panel);
@@ -142,6 +150,7 @@
       // the keyboard lands on its recovery action.
       retry.focus({ preventScroll: true });
     });
+    return settled;
   }
 
   function tableView(headers) {
