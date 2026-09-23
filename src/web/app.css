@@ -576,7 +576,9 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
 }
 .manage-summary .row-line:last-child { border-bottom: 0; }
 .manage-summary .label { color: var(--muted); font-size: var(--fs-secondary); flex: none; width: 5.5rem; }
-.manage-answers { margin: 0.25rem 0 1.125rem; }
+/* A full rem off the calendar button above: 0.25rem left the section
+   heading riding that button's heels and reading as part of it. */
+.manage-answers { margin: 1rem 0 1.125rem; }
 .manage-answers h2 { font-size: var(--fs-body); margin-bottom: 0.25rem; }
 .manage-answers .answer { padding: 0.5rem 0; border-bottom: 1px solid var(--line); }
 .manage-answers .answer:last-child { border-bottom: 0; }
