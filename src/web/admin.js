@@ -12,7 +12,14 @@
       ...(options || {}),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data.error && data.error.message) || `Request failed (${res.status})`);
+    if (!res.ok) {
+      const err = new Error((data.error && data.error.message) || `Request failed (${res.status})`);
+      // The code tells a field-scoped verdict from a whole-form one — the
+      // details editor flags the slug input when the server rejects an
+      // address, and stays out of the way for anything else.
+      err.code = data.error && data.error.code;
+      throw err;
+    }
     return data;
   }
 
@@ -882,10 +889,21 @@
         }, 900);
       } catch (err) {
         save.disabled = false;
-        // Disabling a focused button drops focus to the body; the
-        // verdict's own button keeps a keyboard admin in the conversation.
-        save.focus();
-        note.textContent = `Could not save — ${why(err)}.`;
+        if (err.code === "invalid_input" && /The address /.test(err.message)) {
+          // The server's collision verdict is the slug field's own error:
+          // it wears on the input like the client rules do, the keyboard
+          // lands in the field where the fix happens, and the note drops
+          // to the same grammar those rules use.
+          flag(slugInput, slugField.querySelector(".error"),
+            err.message.replace(/\.+$/, ""));
+          slugInput.focus();
+          note.textContent = "Fix the highlighted fields.";
+        } else {
+          // Disabling a focused button drops focus to the body; the
+          // verdict's own button keeps a keyboard admin in the conversation.
+          save.focus();
+          note.textContent = `Could not save — ${why(err)}.`;
+        }
         note.setAttribute("role", "alert");
         note.classList.add("error", "visible");
       }

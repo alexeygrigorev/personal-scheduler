@@ -255,3 +255,22 @@ def test_a_failed_upcoming_load_never_reads_as_an_empty_shelf():
     quiet = failed.split("} else if (!list.length)", 1)[1]
     assert 'emptyPanel("Nothing booked ahead.",' in quiet
     assert "Share a booking link from your event types" in quiet
+
+
+def test_a_rejected_address_flags_the_slug_field_itself():
+    # The server's collision verdict names an address, and the slug field
+    # is where that fix happens: the save catch wears the message on the
+    # slug input like the client rules do, moves the keyboard into the
+    # field, and drops the note to the same "fix the highlighted fields"
+    # grammar. The code rides the thrown error so only that rejection is
+    # field-scoped; every other failure keeps the button verdict.
+    js = _admin_js()
+    call = js.split("async function call(path, options)", 1)[1]
+    assert "err.code = data.error && data.error.code;" in call
+    handler = js.split('save.addEventListener("click"', 1)[1]
+    catch = handler.split("} catch (err)", 1)[1].split("});", 1)[0]
+    assert 'err.code === "invalid_input" && /The address /.test(err.message)' in catch
+    assert "flag(slugInput, slugField.querySelector(\".error\")" in catch
+    assert "slugInput.focus();" in catch
+    assert 'note.textContent = "Fix the highlighted fields."' in catch
+    assert "Could not save —" in catch
