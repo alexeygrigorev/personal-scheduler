@@ -151,7 +151,7 @@
     try {
       const res = await fetch(`${api}/availability?${params}`);
       data = await readJson(res);
-      if (!res.ok) throw new Error((data.error && data.error.message) || "Unavailable");
+      if (!res.ok) throw new Error((data.error && data.error.message) || `request failed (${res.status})`);
     } catch (err) {
       setStatus("error", `Could not load times — ${why(err)}.`);
       renderEmptyMonth("Availability could not be loaded.", true);
