@@ -535,12 +535,17 @@
       // A distant zone can push the slot's end past midnight — a +14 visitor
       // booking a Berlin afternoon ends at 00:00 their Thursday. Without a
       // flag, "23:30 – 00:00" under Wednesday's date quietly books a visit
-      // on a different day than the card advertises.
+      // on a different day than the card advertises. The flag wraps as its
+      // own unit: glued to the no-break range it forms one chunk wider than
+      // a 320px card, and the browser's emergency break lands after the dash.
       const dayKey = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: state.timezone });
-      const range = `${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)}${dayKey(state.selectedEnd) !== dayKey(state.selectedStart) ? " (+1 day)" : ""}`;
+      const range = `${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)}`;
+      const when = dayKey(state.selectedEnd) !== dayKey(state.selectedStart)
+        ? `${nb(range)} ${nb("(+1 day) ·")}`
+        : `${nb(`${range} ·`)}`;
       const line = part("sum-line", "");
       line.append(
-        part("sum-when", `${nb(`${range} ·`)} `),
+        part("sum-when", `${when} `),
         part("sum-dur", `${nb(`${fmtDuration(state.duration)} ·`)} `),
         part("sum-zone", `${state.timezone.replace(/([/_])/g, "$1\u200B")} (${zoneOffsetLabel(state.selectedStart)})`),
       );

@@ -157,11 +157,14 @@ def test_the_summary_flags_a_range_that_crosses_midnight():
     # visitor the slot ends at 00:00 their Thursday, and a range reading
     # "23:30 - 00:00" under Wednesday's date quietly books a different day
     # than the one the card advertises. The when-chunk must carry a day flag
-    # whenever the display-zone date of the end leaves the start's date.
+    # whenever the display-zone date of the end leaves the start's date —
+    # and the flag must wrap as its own unit (a real break space before it),
+    # since glued to the no-break range it forms one chunk wider than a
+    # 320px card and the browser's emergency break lands after the dash.
     js = (render.WEB_DIR / "booking.js").read_text()
     summary = js.split("function updateSummary()", 1)[1].split("el.replaceChildren", 1)[0]
     assert 'toLocaleDateString("en-CA", { timeZone: state.timezone })' in summary
-    assert '" (+1 day)" : ""' in summary
+    assert '`${nb(range)} ${nb("(+1 day) ·")}`' in summary
     assert "`${range} ·`" in summary
 
 
