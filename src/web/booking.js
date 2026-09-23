@@ -415,8 +415,7 @@
         // the anchor — the body's edge parked the heading under the sticky
         // site head, clipping it; the heading carries the [id] scroll margin,
         // so it stops below the bar with the summary and first fields still
-        // on screen. On desktop the sticky panel is already in view, so this
-        // stays a no-op there.
+        // on screen.
         const detailsAnchor = document.getElementById("details-head") || formWrap;
         detailsAnchor.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
       });
