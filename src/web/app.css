@@ -593,6 +593,9 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
    theme-invariant accent fill once picked. */
 .choice-field .choice input {
   width: 1.0625rem; height: 1.0625rem; flex: none; margin: 0;
+  /* The global input floor (min-height + padding) shapes text fields;
+     once appearance is none it shapes this control instead. */
+  min-height: 0; padding: 0;
   appearance: none;
   border: 1.5px solid var(--line-strong); border-radius: 50%;
   background: var(--surface);
@@ -679,6 +682,8 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
    number input beside them keeps its text-field styling untouched. */
 .q-check input[type="radio"], .q-check input[type="checkbox"] {
   margin: 0;
+  /* Same global-floor exemption as the booking radios. */
+  min-height: 0; padding: 0;
   appearance: none;
   border: 1.5px solid var(--line-strong);
   background: var(--surface);
