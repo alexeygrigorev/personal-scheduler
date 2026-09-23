@@ -773,11 +773,14 @@
   });
 
   // Duration selector comes before date and time choices; changing it
-  // recomputes days and starts and clears a now-invalid selection.
+  // recomputes the times, so the picked start dies with its slot set — but
+  // the day itself is only re-validated by the reload (kept when the new
+  // duration still offers slots on it, else the first bookable day), so
+  // exploring a duration never throws the visitor back to the top of the
+  // month they were halfway down.
   document.querySelectorAll('input[name="duration"]').forEach((radio) => {
     radio.addEventListener("change", () => {
       state.duration = Number(radio.value);
-      state.selectedDay = "";
       state.selectedStart = "";
       showDetails(false);
       updateSummary();
