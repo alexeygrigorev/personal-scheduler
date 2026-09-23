@@ -1019,6 +1019,10 @@ table.admin td div { color: var(--muted); font-size: var(--fs-caption); }
 /* A head carrying a note beside its action groups the pair so both hug the
    right edge — a bare third child would read as space-between's far end. */
 .panel-head-end { display: flex; align-items: center; gap: 0.625rem; }
+/* A verdict joins the head's action as a flex sibling: without a floor the
+ * button folds its own label ("New" / "type") while the note wraps beside
+ * it — the note is the part built to bend, so the button keeps its line. */
+.panel-head-end .btn { flex: none; white-space: nowrap; }
 /* An empty verdict must not hold the action off the edge: its own margin
  * plus the end group's gap would sit the button ~22px short of the card
  * edge the sibling panels reach. */
