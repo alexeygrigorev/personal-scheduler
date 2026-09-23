@@ -541,7 +541,9 @@ input[aria-invalid="true"]:focus, textarea[aria-invalid="true"]:focus {
   outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px;
 }
 .choice-field .choice:has(input:focus-visible) input:focus-visible { outline: none; }
-.choice-field .other-input { display: none; margin: 0.125rem 0 0.25rem 1.6875rem; max-width: 22rem; }
+/* Global inputs are width:100%; shave the indent margin off or the input
+   pokes past the card edge and clips its own focus ring. */
+.choice-field .other-input { display: none; width: calc(100% - 1.6875rem); margin: 0.125rem 0 0.25rem 1.6875rem; max-width: 22rem; }
 /* The Other field exists only while Other is the picked answer; revealed
    up front it reads as a mystery required input and invites stale text. */
 .choice-field.other-open .other-input { display: block; }
