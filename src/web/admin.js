@@ -1400,10 +1400,40 @@
       input.name = name;
       if (name === "timezone") {
         // A typo in a free-text IANA zone would silently break the schedule;
-        // a fixed list cannot be mistyped.
+        // a fixed list cannot be mistyped. Labels speak the booking picker's
+        // dialect — the zone plus its current offset — and the list scans in
+        // daylight order with the configured zone leading, while each option
+        // VALUE stays the bare IANA name the API stores.
         const current = host[name] || "";
-        for (const zone of zones) input.appendChild(new Option(zone, zone));
-        if (current && !zones.includes(current)) input.prepend(new Option(current, current));
+        const now = new Date();
+        const gmtNames = new Map();
+        const gmtName = (zone) => {
+          if (!gmtNames.has(zone)) {
+            let value = "";
+            try {
+              value = new Intl.DateTimeFormat("en", {
+                timeZone: zone, timeZoneName: "shortOffset",
+              }).formatToParts(now).find((p) => p.type === "timeZoneName").value;
+            } catch (err) { /* unformattable zone: the bare name still selects */ }
+            gmtNames.set(zone, value);
+          }
+          return gmtNames.get(zone);
+        };
+        const offsetLabel = (zone) => {
+          if (zone === "UTC") return "UTC";
+          const m = gmtName(zone).match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+          return m ? `${zone} (UTC${m[1]}${m[2].padStart(2, "0")}:${m[3] ?? "00"})` : zone;
+        };
+        const offsetKey = (zone) => {
+          const m = gmtName(zone).match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+          if (!m) return 0;
+          return (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+        };
+        const rest = zones.filter((zone) => zone !== current)
+          .sort((a, b) => offsetKey(a) - offsetKey(b) || (a < b ? -1 : 1));
+        for (const zone of (current ? [current, ...rest] : rest)) {
+          input.appendChild(new Option(offsetLabel(zone), zone));
+        }
         input.value = current;
       } else {
         input.value = host[name] || "";
