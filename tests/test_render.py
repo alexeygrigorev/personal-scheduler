@@ -199,3 +199,30 @@ def test_autofilled_other_text_opens_the_reveal():
     change_listener = js.split('details-form").addEventListener("change"', 1)[1]
     assert "data-other-input" in change_listener.split('input[type=radio]', 1)[0]
     assert js.count('classList.toggle("other-open"') == 1
+def test_month_jumps_hand_the_keyboard_to_the_grid():
+    # Arrow navigation and the next-day month jump disable the control that
+    # was clicked and rebuild the grid on arrival; without a handback a
+    # keyboard visitor lands on <body> exactly where they should continue.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    # retry path, two month arrows, both next-day jump branches
+    assert js.count("loadAvailability().then(focusAfterJump)") == 5
+    handback = js.split("function focusAfterJump()", 1)[1].split("\n  }", 1)[0]
+    # the landing spot prefers the Retry button, then the picked (or first
+    # bookable) day, then the empty-month guidance
+    assert handback.index(".empty-cell.with-action button") < handback.index('button[aria-pressed="true"]')
+    assert handback.index('button[aria-pressed="true"]') < handback.index("#day-grid .empty-cell")
+    assert "focus({ preventScroll: true })" in handback
+
+def test_month_jumps_hand_the_keyboard_to_the_grid():
+    # Arrow navigation and the next-day month jump disable the control that
+    # was clicked and rebuild the grid on arrival; without a handback a
+    # keyboard visitor lands on <body> exactly where they should continue.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    # retry path, two month arrows, both next-day jump branches
+    assert js.count("loadAvailability().then(focusAfterJump)") == 5
+    handback = js.split("function focusAfterJump()", 1)[1].split("\n  }", 1)[0]
+    # the landing spot prefers the Retry button, then the picked (or first
+    # bookable) day, then the empty-month guidance
+    assert handback.index(".empty-cell.with-action button") < handback.index('button[aria-pressed="true"]')
+    assert handback.index('button[aria-pressed="true"]') < handback.index("#day-grid .empty-cell")
+    assert "focus({ preventScroll: true })" in handback
