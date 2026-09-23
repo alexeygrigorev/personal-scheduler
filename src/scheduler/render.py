@@ -196,7 +196,9 @@ def booking_page(item, host_name, viewer_tz="UTC"):
         required = " required" if question.get("required") else ""
         # One visible grammar for "this answer is not optional": a red star
         # on every required label, whatever control the question renders.
-        req_mark = ('<span class="req" aria-hidden="true"> *</span>'
+        # The space before the star is non-breaking — on a wrapped long label
+        # a breakable space orphans the star alone on its own line.
+        req_mark = ('<span class="req" aria-hidden="true">&nbsp;*</span>'
                     if question.get("required") else "")
         limit = int(question.get("max_length", 2000))
         qtype = question.get("type")
@@ -309,12 +311,12 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 <div id="details-form-wrap" hidden>
 <div class="summary-card">{icon('clock', 'ic')}<span id="selection-summary" aria-live="polite">No time selected yet.</span></div>
 <form id="details-form" novalidate>
-<div class="field"><label for="f-name">Name<span class="req" aria-hidden="true"> *</span></label>
+<div class="field"><label for="f-name">Name<span class="req" aria-hidden="true">&nbsp;*</span></label>
 <input id="f-name" autocomplete="name" maxlength="200" required aria-describedby="err-name"><span class="error" id="err-name" role="alert"></span></div>
-<div class="field"><label for="f-email">Email<span class="req" aria-hidden="true"> *</span></label>
+<div class="field"><label for="f-email">Email<span class="req" aria-hidden="true">&nbsp;*</span></label>
 <input id="f-email" type="email" autocomplete="email" maxlength="320" required aria-describedby="err-email"><span class="error" id="err-email" role="alert"></span></div>
 <div class="field"><label for="f-notes">Purpose / agenda</label>
-<textarea id="f-notes" rows="3" maxlength="2000"></textarea><span class="char-count" aria-live="polite"></span><span class="error" id="err-notes" role="alert"></span></div>
+<textarea id="f-notes" rows="3" maxlength="2000" aria-describedby="err-notes"></textarea><span class="char-count" aria-live="polite"></span><span class="error" id="err-notes" role="alert"></span></div>
 {''.join(questions)}
 <p class="form-note">Availability is confirmed on submission — a selected slot is not held while you type.</p>
 <div class="form-actions">
