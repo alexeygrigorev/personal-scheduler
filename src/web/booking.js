@@ -571,8 +571,19 @@
         for (const [inputId, errId, key] of rows) {
           const message = fields[key];
           fieldError(errId, message);
-          const input = $(inputId);
-          if (message && input) input.setAttribute("aria-invalid", "true");
+          if (!message) continue;
+          const input = inputId ? $(inputId) : null;
+          if (input) {
+            input.setAttribute("aria-invalid", "true");
+            continue;
+          }
+          // Radio buttons (and Other's field) carry no id: a server verdict
+          // on the question wears the same one-verdict grammar as client
+          // validation — the group turns, not every radio.
+          const el = document.querySelector(
+            `#details-form input[data-question="${key.slice(2)}"]`);
+          const field = el && el.closest(".choice-field");
+          if (field) field.setAttribute("aria-invalid", "true");
         }
         throw new Error((data.error && data.error.message) || "Booking failed");
       }

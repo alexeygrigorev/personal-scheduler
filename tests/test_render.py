@@ -85,9 +85,11 @@ def test_long_question_gets_a_textarea_with_a_counter():
             'aria-describedby="err-q-goal"></textarea>') in html
     assert '<span class="char-count" aria-live="polite"></span>' in html
     # Required reads the same on every control: the red star sits on the
-    # label, hidden from assistive tech that already knows `required`.
+    # label, hidden from assistive tech that already knows `required`. The
+    # space before it may be a plain or non-breaking one.
     label = html.split('<label for="q-goal">')[1].split("</label>")[0]
-    assert '<span class="req" aria-hidden="true"> *</span>' in label
+    assert ('<span class="req" aria-hidden="true"> *</span>' in label
+            or '<span class="req" aria-hidden="true">&nbsp;*</span>' in label)
 
 
 def test_short_question_stays_a_single_line_input_without_counter():
