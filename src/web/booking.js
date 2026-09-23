@@ -107,8 +107,29 @@
     if (hint) hint.textContent = "";
     const grid = $("day-grid");
     grid.innerHTML = "";
-    for (let i = 0; i < 28; i++) {
-      const block = document.createElement("div");
+    // The skeleton must occupy exactly the rows the real grid will — the
+    // static weekday header, the month's leading pads, one chip per day. A
+    // partial skeleton is worse than none: load completion would still shove
+    // the times section down by whatever height it failed to reserve.
+    for (const label of ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]) {
+      const head = document.createElement("span");
+      head.className = "dow";
+      head.textContent = label;
+      head.setAttribute("aria-hidden", "true");
+      grid.appendChild(head);
+    }
+    const first = new Date(viewerMonthRange().from + "T12:00:00Z");
+    const offset = (first.getUTCDay() + 6) % 7; // Monday-first columns
+    for (let i = 0; i < offset; i++) {
+      const pad = document.createElement("span");
+      pad.className = "pad";
+      pad.setAttribute("aria-hidden", "true");
+      grid.appendChild(pad);
+    }
+    const daysInMonth = new Date(
+      Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+    for (let i = 0; i < daysInMonth; i++) {
+      const block = document.createElement("span");
       block.className = "skeleton-row";
       block.setAttribute("aria-hidden", "true");
       grid.appendChild(block);
