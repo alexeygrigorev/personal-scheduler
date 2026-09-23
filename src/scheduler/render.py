@@ -258,6 +258,7 @@ def booking_page(item, host_name, viewer_tz="UTC"):
 </section>
 <section class="details-panel" aria-label="Your details">
 <div class="panel details-panel-inner">
+<div class="times-head details-head"><h2>Your details</h2></div>
 <div class="placeholder" id="details-placeholder">
 {icon('calendar', 'ic')}
 <p>No time selected yet.<br>Pick a day and a time to continue.</p>
@@ -493,6 +494,6 @@ def admin_shell(email):
 <section class="admin-section" id="bookings" hidden></section>
 <section class="admin-section" id="settings" hidden></section>
 <div id="admin-root" data-config='{json.dumps({"zones": list(COMMON_ZONES)})}'></div>"""
-    return http.html_response(200, shell("Admin", body, scripts=("admin.js",),
+    return http.html_response(200, shell("Scheduler admin", body, scripts=("admin.js",),
                                          head_side=side,
                                          tz_note="Times shown in the Settings timezone"))

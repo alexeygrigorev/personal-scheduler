@@ -433,6 +433,9 @@ textarea { width: 100%; resize: vertical; }
 }
 .times-head h2 { margin: 0; }
 .times-head .hint { color: var(--muted); font-size: var(--fs-caption); }
+/* The details panel opens with the same heading language, but as its first
+ * row the separator and offset would double the panel's own padding. */
+.details-panel-inner .details-head { margin-top: 0; padding-top: 0; border-top: 0; }
 
 /* inline status: quiet while neutral, boxed once it has something to say */
 .status { display: flex; align-items: flex-start; gap: 0.5rem;
