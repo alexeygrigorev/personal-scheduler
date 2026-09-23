@@ -556,14 +556,23 @@
 
   function nextAvailableDay() {
     if (state.days.length) {
-      const next = state.days.find((d) => d > state.selectedDay) || state.days[0];
-      state.selectedDay = next;
-      renderDays(state.days);
-      renderTimes(state.dayToSlots[next] || []);
-      // Land keyboard users on the day they just jumped to; the day cell
-      // announces itself ("Bookable: …") and Tabs straight into its times.
-      const picked = $("day-grid").querySelector('button[aria-pressed="true"]');
-      if (picked) picked.focus({ preventScroll: true });
+      const next = state.days.find((d) => d > state.selectedDay);
+      if (next) {
+        state.selectedDay = next;
+        renderDays(state.days);
+        renderTimes(state.dayToSlots[next] || []);
+        // Land keyboard users on the day they just jumped to; the day cell
+        // announces itself ("Bookable: …") and Tabs straight into its times.
+        const picked = $("day-grid").querySelector('button[aria-pressed="true"]');
+        if (picked) picked.focus({ preventScroll: true });
+        return;
+      }
+      // Already on this month's last open day: "next" is the next month,
+      // whose first open day loadAvailability() selects on arrival.
+      const m = new Date(state.month);
+      m.setUTCMonth(m.getUTCMonth() + 1);
+      state.month = m;
+      loadAvailability();
     } else {
       const m = new Date(state.month);
       m.setUTCMonth(m.getUTCMonth() + 1);
@@ -647,13 +656,16 @@
     updateSummary();
     loadAvailability();
   });
-  function monthKey(d) {
-    return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+  // Absolute month index, not a "2026-10"-style key: string keys compare
+  // lexicographically, so October–December sorted before September and the
+  // back arrow locked in the last quarter of every year.
+  function monthIndex(d) {
+    return d.getUTCFullYear() * 12 + d.getUTCMonth();
   }
 
   function syncMonthNav() {
-    const current = monthKey(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1)));
-    $("prev-month").disabled = monthKey(state.month) <= current;
+    const current = monthIndex(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1)));
+    $("prev-month").disabled = monthIndex(state.month) <= current;
   }
 
   $("clock-toggle").addEventListener("click", () => {
