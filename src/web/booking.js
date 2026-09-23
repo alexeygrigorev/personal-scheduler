@@ -141,17 +141,21 @@
         loadAvailability().then(() => {
           // Whichever way the retry lands, keyboard focus stays in the grid:
           // the fresh Retry button on another failure, the picked day (or the
-          // first bookable one) on success.
+          // first bookable one) on success, the empty-month guidance when
+          // success finds nothing bookable.
           const again = document.querySelector(".empty-cell.with-action button");
           const day = document.querySelector('#day-grid button[aria-pressed="true"]')
             || document.querySelector("#day-grid button[data-day]");
-          const target = again || day;
+          const target = again || day || document.querySelector("#day-grid .empty-cell");
           if (target) target.focus({ preventScroll: true });
         });
       });
       cell.appendChild(retryBtn);
     } else {
       cell.textContent = message || "Try another month, or use “Next available day”.";
+      // Focusable so a retry that lands here can anchor the keyboard user on
+      // the guidance instead of dropping them to <body>.
+      cell.tabIndex = -1;
     }
     grid.appendChild(cell);
     renderTimes([]);
