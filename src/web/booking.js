@@ -592,7 +592,10 @@
     ev.preventDefault();
     btn.tabIndex = -1;
     next.tabIndex = 0;
+    // preventScroll skips the browser's reveal; scroll the focus target
+    // into view with the smallest scroll, or keyboard focus lands unseen.
     next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: "nearest" });
   });
 
   // The times list makes the same bargain as the day grid: one tab stop for
@@ -615,7 +618,10 @@
     ev.preventDefault();
     btn.tabIndex = -1;
     next.tabIndex = 0;
+    // preventScroll skips the browser's reveal; scroll the focus target
+    // into view with the smallest scroll, or keyboard focus lands unseen.
     next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: "nearest" });
   });
 
   // Duration selector comes before date and time choices; changing it
