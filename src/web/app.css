@@ -247,13 +247,17 @@ main.landing {
   border: 1px dashed var(--line-strong); border-radius: var(--r-card);
   background: var(--surface); color: var(--muted);
   padding: 2.5rem 1.5rem; text-align: center; max-width: 34rem;
+  /* Centered in its column (the landing's "nothing bookable" box) and safe
+   * against long unbroken tokens in failure copy at 320px. */
+  margin-inline: auto;
 }
+.empty-state p { overflow-wrap: anywhere; }
 /* Failure variant (admin section load): solid and full-width like the cards
  * around it, so the state reads as "something broke" rather than the page
  * running out of content. */
 .empty-state.error {
   border-style: solid; border-color: var(--line);
-  max-width: none; margin-inline: auto;
+  max-width: none;
 }
 .empty-state.error p { color: var(--ink); font-weight: 600; }
 
@@ -441,6 +445,18 @@ textarea { width: 100%; resize: vertical; }
 }
 .times-head h2 { margin: 0; }
 .times-head .hint { color: var(--muted); font-size: var(--fs-caption); }
+/* A taken slot's verdict sits in the times head: the head is the scroll
+ * target after the 409 reload, while the status banner above the day grid
+ * never survives the scroll. Boxed like .status.error, a row below the
+ * heading. */
+.times-verdict {
+  flex-basis: 100%; margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem; border-radius: var(--r-ctrl);
+  background: var(--danger-soft); border: 1px solid var(--danger-border);
+  color: var(--danger-strong); font-size: var(--fs-secondary); font-weight: 550;
+}
+/* Only ever focused programmatically (the no-fresh-slot fallback), like .status. */
+.times-verdict:focus, .times-verdict:focus-visible { outline: none; }
 /* The details panel opens with the same heading language, but as its first
  * row the separator and offset would double the panel's own padding. */
 .details-panel-inner .details-head { margin-top: 0; padding-top: 0; border-top: 0; }

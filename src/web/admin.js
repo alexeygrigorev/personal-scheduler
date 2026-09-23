@@ -45,13 +45,16 @@
   let settingsCache = null;
   async function hostSettings() {
     if (!settingsCache) {
-      try { settingsCache = await call("/settings"); }
-      catch (err) { settingsCache = {}; }
+      // A failed load must never be cached as an empty result: an empty
+      // object here once rendered a blank editable form whose Save would
+      // wipe the real config, and quietly degrade every zone-formatted
+      // time. Throw instead — each section's failure card offers Retry.
+      settingsCache = await call("/settings");
       const tz = (settingsCache.host || {}).timezone || "";
       const note = document.getElementById("tz-note");
       if (tz && note) note.textContent = `Times shown in ${tz} — the zone from Settings`;
     }
-    return settingsCache || {};
+    return settingsCache;
   }
 
   function fmtWhen(iso) {
@@ -126,9 +129,18 @@
       panel.appendChild(el("p", `Could not load this section — ${why(err)}.`));
       const retry = el("button", "Retry");
       retry.className = "btn sm";
-      retry.addEventListener("click", () => show(section));
+      retry.addEventListener("click", () => {
+        show(section);
+        // The clicked Retry is about to be removed; hold keyboard position
+        // on the skeleton that replaces it instead of dumping to <body>.
+        const skeleton = box.querySelector(".tab-loading");
+        if (skeleton) { skeleton.tabIndex = -1; skeleton.focus({ preventScroll: true }); }
+      });
       panel.appendChild(retry);
       box.appendChild(panel);
+      // Same handback for the failure itself: the alert is announced, and
+      // the keyboard lands on its recovery action.
+      retry.focus({ preventScroll: true });
     });
   }
 
@@ -709,6 +721,11 @@
 
   async function loadSettings() {
     const data = await hostSettings();
+    // A 200 without a host payload is as dangerous as a failure: rendering
+    // it would invite a Save of all-empty settings over the real config.
+    if (!data || !data.host) {
+      throw new Error("the server returned an empty settings payload");
+    }
     const box = document.getElementById("settings");
     box.innerHTML = "";
     const host = data.host || {};
