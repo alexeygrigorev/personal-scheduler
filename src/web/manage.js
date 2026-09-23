@@ -152,6 +152,10 @@
         if (outcome !== "pending") {
           confirmBtn.disabled = false;
           keepBtn.disabled = false;
+          // Disabling the focused button threw focus to <body>; hand it back
+          // so a keyboard retry continues from the row it came from, with
+          // the error sentence still in view.
+          confirmBtn.focus({ preventScroll: true });
           return;
         }
         // The armed row below a "do not retry" status invites the exact
@@ -281,7 +285,10 @@
         // it means for an invitee picking a new slot.
         policy_violation: "That time is too soon — the booking policy needs more notice. Pick a later start.",
       }).then((outcome) => {
-        if (!outcome) submitBtn.disabled = false;
+        // Same as the cancel row: an error re-enables the submit and hands
+        // focus back to it — a keyboard user retries from where they were,
+        // not from the top of the document.
+        if (!outcome) { submitBtn.disabled = false; submitBtn.focus({ preventScroll: true }); }
       });
     });
   }
