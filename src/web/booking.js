@@ -1339,6 +1339,13 @@
       } else if (ev.key === "Escape" && open) {
         ev.preventDefault();
         collapse();
+      } else if (ev.key === "Tab" && open) {
+        // With the list open it is the browser's next stop after the field,
+        // but the blur handler only hides it once the focus move is already
+        // under way — the pending target vanishes and focus falls out of the
+        // page to <body>. Shutting the list here, before the default
+        // navigation runs, gives Tab a stable field to leave either way.
+        collapse();
       }
     });
     list.addEventListener("mousedown", (ev) => {
