@@ -809,8 +809,13 @@
   // with the wrap unreachable.
   document.getElementById("details-form").addEventListener("click", (ev) => {
     if (!ev.target.matches("input[type=radio][data-other-radio]")) return;
-    const otherInput = ev.target.closest(".choice-field")?.querySelector("[data-other-input]");
-    if (otherInput) otherInput.focus();
+    // The field is opened in change, which fires after this click's default
+    // action — deferring lands the focus after the reveal, since focus()
+    // on a still-hidden field is a silent no-op.
+    setTimeout(() => {
+      const otherInput = ev.target.closest(".choice-field")?.querySelector("[data-other-input]");
+      if (otherInput) otherInput.focus();
+    });
   });
   document.querySelectorAll(".choice-field").forEach((field) => {
     field.classList.toggle("other-open",
