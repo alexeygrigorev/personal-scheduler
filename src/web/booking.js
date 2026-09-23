@@ -500,15 +500,18 @@
       const day = new Date(state.selectedStart).toLocaleDateString([], {
         weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: state.timezone,
       });
-      el.replaceChildren(
-        Object.assign(document.createElement("span"), {
-          className: "sum-line strong", textContent: day,
-        }),
-        Object.assign(document.createElement("span"), {
-          className: "sum-line", textContent:
-            `${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)} · ${fmtDuration(state.duration)} · ${state.timezone} (${zoneOffsetLabel(state.selectedStart)})`,
-        }),
+      // The range and the duration travel as one unit each — separators ride
+      // inside so a break lands between chunks, never inside "30 min". The
+      // zone chunk wraps: a long name gives before the offset does.
+      const part = (className, textContent) =>
+        Object.assign(document.createElement("span"), { className, textContent });
+      const line = part("sum-line", "");
+      line.append(
+        part("sum-when", `${fmtTime(state.selectedStart)} – ${fmtTime(state.selectedEnd)} · `),
+        part("sum-dur", `${fmtDuration(state.duration)} · `),
+        part("sum-zone", `${state.timezone} (${zoneOffsetLabel(state.selectedStart)})`),
       );
+      el.replaceChildren(part("sum-line strong", day), line);
     } else {
       el.textContent = "No time selected yet.";
     }
@@ -1033,6 +1036,10 @@
   state.month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   rememberTimezone();
   const tzSelect = $("tz-select");
+  const spokenOffset = (t) => {
+    const m = String(t).match(/\(UTC([+-])(\d{2}):(\d{2})\)/);
+    return m ? Number(m[1] + (Number(m[2]) * 60 + Number(m[3]))) : 0;
+  };
   const own = [...tzSelect.options].findIndex((o) => o.value === state.timezone);
   if (own === -1) {
     // The browser-reported zone is the visitor's own zone; it leads the list,
@@ -1059,6 +1066,12 @@
     // the picker's promise (the visitor's zone leads) on the first look
     // instead of from the next page on.
     tzSelect.insertBefore(tzSelect.options[own], tzSelect.firstChild);
+    // The server's pin (its default, on a first visit) keeps the seat the
+    // move vacated, so the rest would read +02:00, -07:00, -05:00... Re-read
+    // them in offset order — the scan for the daylight neighbor stays true.
+    const rest = [...tzSelect.options].slice(1)
+      .sort((a, b) => spokenOffset(a.textContent) - spokenOffset(b.textContent));
+    for (const o of rest) tzSelect.appendChild(o);
   }
   tzSelect.value = state.timezone;
   $("clock-toggle").textContent = state.hour12 ? "Use 24-hour clock" : "Use 12-hour clock";

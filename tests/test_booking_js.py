@@ -139,3 +139,29 @@ def test_the_offered_visitor_zone_leads_on_the_first_visit_too():
     assert "findIndex((o) => o.value === state.timezone)" in boot
     assert "else if (own > 0)" in boot
     assert "insertBefore(tzSelect.options[own], tzSelect.firstChild)" in boot
+
+
+def test_the_first_visit_move_keeps_the_offset_scan_true():
+    # Moving the visitor's offered zone to the top leaves the server's pin
+    # (the event default, on a first visit) in the seat the move vacated —
+    # the rest would read +02:00, -07:00, -05:00... The boot must re-read
+    # the remaining options in offset order.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    boot = js.split('const tzSelect = $("tz-select");', 1)[1].split(
+        "tzSelect.value = state.timezone;", 1)[0]
+    assert "spokenOffset" in boot
+    assert ".sort((a, b) => spokenOffset(a.textContent) - spokenOffset(b.textContent))" in boot
+    assert "for (const o of rest) tzSelect.appendChild(o);" in boot
+
+
+def test_the_first_visit_move_keeps_the_offset_scan_true():
+    # Moving the visitor's offered zone to the top leaves the server's pin
+    # (the event default, on a first visit) in the seat the move vacated —
+    # the rest would read +02:00, -07:00, -05:00... The boot must re-read
+    # the remaining options in offset order.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    boot = js.split('const tzSelect = $("tz-select");', 1)[1].split(
+        "tzSelect.value = state.timezone;", 1)[0]
+    assert "spokenOffset" in boot
+    assert ".sort((a, b) => spokenOffset(a.textContent) - spokenOffset(b.textContent))" in boot
+    assert "for (const o of rest) tzSelect.appendChild(o);" in boot
