@@ -412,8 +412,16 @@ textarea { width: 100%; resize: vertical; }
   font-size: var(--fs-secondary); font-variant-numeric: tabular-nums;
 }
 /* Day cells pin a 2.75rem circle in their column: width straight from the
- * 1fr track turns the radius-999px chip into a stretched oval. */
-.day-grid > button { width: 2.75rem; justify-self: center; }
+ * 1fr track turns the radius-999px chip into a stretched oval. Below the
+ * width where seven 2.75rem tracks fit, the chip rides the track cap and
+ * aspect-ratio keeps it a perfect circle as everything shrinks together. */
+.day-grid > button {
+  width: min(2.75rem, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  align-self: center;
+  justify-self: center;
+}
 .day-grid .pad { pointer-events: none; }
 .day-grid .empty-cell {
   grid-column: 1 / -1;
