@@ -597,8 +597,10 @@
     } else {
       return;
     }
-    if (!next) return;
+    // Claimed keys are consumed even when there is nowhere to go — an edge
+    // arrow must not fall through to page scroll mid-walk.
     ev.preventDefault();
+    if (!next) return;
     btn.tabIndex = -1;
     next.tabIndex = 0;
     // preventScroll skips the browser's reveal; scroll the focus target
@@ -623,8 +625,10 @@
     } else {
       return;
     }
-    if (!next) return;
+    // Claimed keys are consumed even when there is nowhere to go — an edge
+    // arrow must not fall through to page scroll mid-walk.
     ev.preventDefault();
+    if (!next) return;
     btn.tabIndex = -1;
     next.tabIndex = 0;
     // preventScroll skips the browser's reveal; scroll the focus target
