@@ -1033,7 +1033,8 @@
   state.month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   rememberTimezone();
   const tzSelect = $("tz-select");
-  if (![...tzSelect.options].some((o) => o.value === state.timezone)) {
+  const own = [...tzSelect.options].findIndex((o) => o.value === state.timezone);
+  if (own === -1) {
     // The browser-reported zone is the visitor's own zone; it leads the list,
     // matching the server render that pins the cookie zone first. A legacy
     // alias (Asia/Calcutta) can arrive here, and its label is computed in the
@@ -1052,6 +1053,12 @@
     } catch (err) { /* unformattable zone: the bare name still selects */ }
     opt.textContent = label;
     tzSelect.insertBefore(opt, tzSelect.firstChild);
+  } else if (own > 0) {
+    // An offered zone is selected but, on a first visit, nothing pinned it
+    // server-side yet — the cookie is only written now. Moving it up keeps
+    // the picker's promise (the visitor's zone leads) on the first look
+    // instead of from the next page on.
+    tzSelect.insertBefore(tzSelect.options[own], tzSelect.firstChild);
   }
   tzSelect.value = state.timezone;
   $("clock-toggle").textContent = state.hour12 ? "Use 24-hour clock" : "Use 12-hour clock";

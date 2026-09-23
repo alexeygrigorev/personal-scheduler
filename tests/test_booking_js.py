@@ -113,3 +113,29 @@ def test_every_offset_on_the_page_reads_one_dialect():
     label = js.split("function zoneOffsetLabel(iso) {", 1)[1].split("\n  }", 1)[0]
     assert 'padStart(2, "0")' in label
     assert '"UTC+00:00"' in label
+
+
+def test_the_offered_visitor_zone_leads_on_the_first_visit_too():
+    # The common zones already carry America/New_York, so a first visit (no
+    # tz cookie yet) hits neither the server-side pin nor the missing-zone
+    # insert — the visitor's zone sat mid-list until the next page load,
+    # when the picker's promise is that their zone leads at once.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    boot = js.split('const tzSelect = $("tz-select");', 1)[1].split(
+        "tzSelect.value = state.timezone;", 1)[0]
+    assert "findIndex((o) => o.value === state.timezone)" in boot
+    assert "else if (own > 0)" in boot
+    assert "insertBefore(tzSelect.options[own], tzSelect.firstChild)" in boot
+
+
+def test_the_offered_visitor_zone_leads_on_the_first_visit_too():
+    # The common zones already carry America/New_York, so a first visit (no
+    # tz cookie yet) hits neither the server-side pin nor the missing-zone
+    # insert — the visitor's zone sat mid-list until the next page load,
+    # when the picker's promise is that their zone leads at once.
+    js = (render.WEB_DIR / "booking.js").read_text()
+    boot = js.split('const tzSelect = $("tz-select");', 1)[1].split(
+        "tzSelect.value = state.timezone;", 1)[0]
+    assert "findIndex((o) => o.value === state.timezone)" in boot
+    assert "else if (own > 0)" in boot
+    assert "insertBefore(tzSelect.options[own], tzSelect.firstChild)" in boot
