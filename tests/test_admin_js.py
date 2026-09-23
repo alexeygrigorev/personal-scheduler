@@ -263,6 +263,9 @@ def test_a_failed_upcoming_load_never_reads_as_an_empty_shelf():
     assert failed.count('retry.className = "btn sm"') == 1
     assert "again.focus({ preventScroll: true })" in failed
     assert "retry.disabled = false; retry.focus();" in failed
-    # The true empty keeps its quiet shelf — only the failure changed voice.
+    # The true empty keeps its quiet voice but wears the console's shared
+    # dashed empty-state panel — a lone hint line under the head read as a
+    # second, lesser design system beside the tabs' empty states.
     quiet = failed.split("} else if (!list.length)", 1)[1]
-    assert 'el("p", "Nothing booked ahead.")' in quiet
+    assert 'emptyPanel("Nothing booked ahead.",' in quiet
+    assert "Share a booking link from your event types" in quiet
