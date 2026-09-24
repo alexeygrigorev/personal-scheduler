@@ -24,10 +24,14 @@ EMAIL_SENDER = _clean("EMAIL_SENDER", "scheduler@datatalks.club")
 DAPIER_BASE_URL = _clean("DAPIER_BASE_URL", "https://dapier.dtcdev.click").rstrip("/")
 # Agent identity presented to Dapier's token endpoint, and the Secrets
 # Manager ARN holding this deployment's enrolled machine credential
-# ({"client_id", "refresh_token"}). Without the ARN the calendar port fails
+# ({"client_id", "refresh_token"}). Without either the calendar port fails
 # closed — no credential is ever guessed or stored here.
 DAPIER_AGENT = _clean("DAPIER_AGENT", "personal-scheduler")
 DAPIER_MACHINE_SECRET_ARN = _clean("DAPIER_MACHINE_SECRET_ARN")
+# Preferred over the enrolled machine identity when both are set: a
+# Dapier-issued API token ({"api_token": "dap_…"}) the operator controls —
+# visible and revocable in Dapier's console.
+DAPIER_API_TOKEN_SECRET_ARN = _clean("DAPIER_API_TOKEN_SECRET_ARN")
 WORK_QUEUE_URL = _clean("WORK_QUEUE_URL")
 
 SESSION_COOKIE = "sched_session"

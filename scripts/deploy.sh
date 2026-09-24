@@ -23,6 +23,16 @@ CERT_ARN="${CERT_ARN:-arn:aws:acm:eu-west-1:817685572750:certificate/c13e30c0-f1
 MACHINE_SECRET_ID="${MACHINE_SECRET_ID:-personal-scheduler/dapier-machine}"
 DAPIER_MACHINE_SECRET_ARN="${DAPIER_MACHINE_SECRET_ARN:-$(aws secretsmanager describe-secret \
   --secret-id "$MACHINE_SECRET_ID" --query ARN --output text 2>/dev/null || true)}"
+# A Dapier-issued API token, when the operator has provisioned one, wins over
+# the enrolled machine identity.
+API_TOKEN_SECRET_ID="${API_TOKEN_SECRET_ID:-personal-scheduler/dapier-api-token}"
+DAPIER_API_TOKEN_SECRET_ARN="${DAPIER_API_TOKEN_SECRET_ARN:-$(aws secretsmanager describe-secret \
+  --secret-id "$API_TOKEN_SECRET_ID" --query ARN --output text 2>/dev/null || true)}"
+# A Dapier-issued API token, when the operator has provisioned one, wins over
+# the enrolled machine identity.
+API_TOKEN_SECRET_ID="${API_TOKEN_SECRET_ID:-personal-scheduler/dapier-api-token}"
+DAPIER_API_TOKEN_SECRET_ARN="${DAPIER_API_TOKEN_SECRET_ARN:-$(aws secretsmanager describe-secret \
+  --secret-id "$API_TOKEN_SECRET_ID" --query ARN --output text 2>/dev/null || true)}"
 
 overrides=(
   DomainName=scheduler.dtcdev.click
@@ -38,6 +48,12 @@ overrides=(
 # keeps CloudFormation's previous value, which is '' until first enrolled.
 if [ -n "$DAPIER_MACHINE_SECRET_ARN" ] && [ "$DAPIER_MACHINE_SECRET_ARN" != "None" ]; then
   overrides+=(DapierMachineSecretArn="$DAPIER_MACHINE_SECRET_ARN")
+fi
+if [ -n "$DAPIER_API_TOKEN_SECRET_ARN" ] && [ "$DAPIER_API_TOKEN_SECRET_ARN" != "None" ]; then
+  overrides+=(DapierApiTokenSecretArn="$DAPIER_API_TOKEN_SECRET_ARN")
+fi
+if [ -n "$DAPIER_API_TOKEN_SECRET_ARN" ] && [ "$DAPIER_API_TOKEN_SECRET_ARN" != "None" ]; then
+  overrides+=(DapierApiTokenSecretArn="$DAPIER_API_TOKEN_SECRET_ARN")
 fi
 
 sam deploy --config-env sandbox --parameter-overrides "${overrides[@]}" "$@"

@@ -119,10 +119,12 @@ class HttpDapierClient(DapierClient):
     (DataTalksClub/dapier ``src/agent_api.py``):
 
     ``POST {base}/api/agent/token`` with ``{"connection_id", "agent"}`` and
-    ``Authorization: Bearer <DTC ID token>`` → ``{provider, access_token,
-    expires_at, scope, provider_account_id}``. Dapier keeps every refresh
-    token and client secret; this side holds only non-secret connection
-    references and a short-lived token in memory."""
+    ``Authorization: Bearer <identity>`` → ``{provider, access_token,
+    expires_at, scope, provider_account_id}``. The identity is either a
+    Dapier-issued API token (:class:`StaticTokenIdentity`) or an enrolled
+    DTC machine identity (:class:`DtcRefreshIdentity`). Dapier keeps every
+    refresh token and client secret; this side holds only non-secret
+    connection references and a short-lived token in memory."""
 
     def __init__(self, base_url: str, agent: str, identity=None,
                  token_path: str = "/api/agent/token", timeout: int = 10):
@@ -209,6 +211,39 @@ class HttpDapierClient(DapierClient):
         if not authorize_url:
             raise DapierError("dapier connect response had no authorize_url")
         return str(authorize_url)
+
+
+class StaticTokenIdentity:
+    """Dapier-issued API token, loaded once from Secrets Manager.
+
+    The operator creates the token in Dapier (console or ``dapier tokens
+    create``), grants its ``token:<id>`` subject on the calendar connection,
+    and stores the plaintext in this deployment's secret. Presenting it is
+    plain bearer authentication: no DTC exchange, and access is revoked by
+    revoking the token in Dapier rather than by rotating a machine identity.
+    """
+
+    def __init__(self, secret_arn: str, timeout: int = 10):
+        self.secret_arn = (secret_arn or "").strip()
+        self.timeout = timeout
+        self._token = ""
+
+    def _load(self):
+        if self._token:
+            return
+        import boto3
+        raw = boto3.client("secretsmanager").get_secret_value(
+            SecretId=self.secret_arn)["SecretString"]
+        stored = json.loads(raw)
+        token = str(stored.get("api_token", "")).strip()
+        if not token.startswith("dap_"):
+            raise DapierNotConfigured(
+                "the dapier API token secret does not hold a dap_ token")
+        self._token = token
+
+    def bearer(self) -> str:
+        self._load()
+        return self._token
 
 
 class DtcRefreshIdentity:

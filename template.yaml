@@ -40,6 +40,14 @@ Parameters:
       credential (JSON {"client_id", "refresh_token"}). Provisioned once by
       the operator via the dapier CLI; empty until enrollment is done, which
       keeps the calendar port failing closed instead of guessing.
+  DapierApiTokenSecretArn:
+    Type: String
+    Default: ''
+    Description: >
+      Secrets Manager ARN holding this deployment's Dapier API token (JSON
+      {"api_token": "dap_…"}), issued by a Dapier operator and preferred over
+      the enrolled machine identity. Empty keeps the calendar port failing
+      closed instead of guessing.
   GitHubRepo:
     Type: String
     Default: DataTalksClub/personal-scheduler
@@ -66,10 +74,12 @@ Globals:
         DAPIER_BASE_URL: !Ref DapierBaseUrl
         DAPIER_AGENT: personal-scheduler
         DAPIER_MACHINE_SECRET_ARN: !Ref DapierMachineSecretArn
+        DAPIER_API_TOKEN_SECRET_ARN: !Ref DapierApiTokenSecretArn
         WORK_QUEUE_URL: !Ref WorkQueue
 
 Conditions:
   HasDapierMachineSecret: !Not [!Equals [!Ref DapierMachineSecretArn, '']]
+  HasDapierApiTokenSecret: !Not [!Equals [!Ref DapierApiTokenSecretArn, '']]
 
 Resources:
   Api:
@@ -149,6 +159,18 @@ Resources:
                 Action: [secretsmanager:GetSecretValue]
                 Resource: !Ref DapierMachineSecretArn
               - !Ref AWS::NoValue
+            - !If
+              - HasDapierApiTokenSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierApiTokenSecretArn
+              - !Ref AWS::NoValue
+            - !If
+              - HasDapierApiTokenSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierApiTokenSecretArn
+              - !Ref AWS::NoValue
       Events:
         Root:
           Type: HttpApi
@@ -185,6 +207,18 @@ Resources:
                 Action: [secretsmanager:GetSecretValue]
                 Resource: !Ref DapierMachineSecretArn
               - !Ref AWS::NoValue
+            - !If
+              - HasDapierApiTokenSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierApiTokenSecretArn
+              - !Ref AWS::NoValue
+            - !If
+              - HasDapierApiTokenSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierApiTokenSecretArn
+              - !Ref AWS::NoValue
       Events:
         Admin:
           Type: HttpApi
@@ -218,6 +252,18 @@ Resources:
               - Effect: Allow
                 Action: [secretsmanager:GetSecretValue]
                 Resource: !Ref DapierMachineSecretArn
+              - !Ref AWS::NoValue
+            - !If
+              - HasDapierApiTokenSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierApiTokenSecretArn
+              - !Ref AWS::NoValue
+            - !If
+              - HasDapierApiTokenSecret
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Ref DapierApiTokenSecretArn
               - !Ref AWS::NoValue
       Events:
         Queue:

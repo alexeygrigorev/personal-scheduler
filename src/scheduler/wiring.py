@@ -21,12 +21,14 @@ def get():
     if _test_wiring is not None:
         return _test_wiring
     from .calendar import RestGoogleCalendarProvider
-    from .dapier import DtcRefreshIdentity, HttpDapierClient
+    from .dapier import DtcRefreshIdentity, HttpDapierClient, StaticTokenIdentity
     from .emailer import SesEmailPort
     from . import store as store_mod
 
     identity = None
-    if config.DAPIER_MACHINE_SECRET_ARN:
+    if config.DAPIER_API_TOKEN_SECRET_ARN:
+        identity = StaticTokenIdentity(config.DAPIER_API_TOKEN_SECRET_ARN)
+    elif config.DAPIER_MACHINE_SECRET_ARN:
         identity = DtcRefreshIdentity(config.AUTH_BASE_URL,
                                       config.DAPIER_MACHINE_SECRET_ARN)
     dapier = HttpDapierClient(config.DAPIER_BASE_URL, config.DAPIER_AGENT,
