@@ -154,6 +154,38 @@ def test_admin_rejects_an_invalid_question_configuration(table):
     assert raised
 
 
+def test_seed_upgrade_fills_questions_into_a_table_seeded_without_them(table):
+    """A table seeded before event types grew questions keeps the item it
+    already has — the marker claim alone never rewrites it. When the seed
+    marker version moves, the upgrade fills the gap in place: the deployed
+    dtc-30 starts asking the Calendly questions, a host edit (the title
+    here) survives, and a question list the host already configured is
+    left alone."""
+    legacy = next(et for et in seed_event_types() if et.id == "dtc-30")
+    item = {**legacy.to_item(), "title": "Host-renamed chat"}
+    item.pop("questions")
+    table.put_item(Item=store._item("SEED#v1", "META", "seed_marker", {"version": 1}))
+    table.put_item(Item=store._item("EVENTTYPE#dtc-30", "META", "event_type", item,
+                                    gsi1pk="EVENTTYPES", gsi1sk="000002#dtc-30"))
+    # Another type already asks a host-configured question: not the seed's
+    # to overwrite, whatever the marker upgrade decides is missing.
+    custom = [{"id": "topic", "label": "Topic?", "type": "text", "max_length": 100}]
+    table.put_item(Item=store._item("EVENTTYPE#community-30", "META", "event_type",
+                                    {**next(et for et in seed_event_types()
+                                            if et.id == "community-30").to_item(),
+                                     "questions": custom},
+                                    gsi1pk="EVENTTYPES", gsi1sk="000001#community-30"))
+    assert store.ensure_seed() is True
+    upgraded = store.get_event_type("dtc-30")
+    assert upgraded["title"] == "Host-renamed chat"
+    assert [q["id"] for q in upgraded["questions"]] == ["talk-about", "discuss", "company"]
+    assert store.get_event_type("community-30")["questions"] == custom
+    # The missing seed types and schedule still arrive; a second cold start
+    # claims nothing and changes nothing.
+    assert store.resolve_slug("60min")["id"] == "general-60"
+    assert store.ensure_seed() is False
+
+
 def test_duration_label_glues_its_unit_to_the_number():
     # A wrapped duration range must never strand the unit alone on the next
     # line ("... 30 min – 1" / "hour"): the number and its unit share a

@@ -21,7 +21,8 @@ Layout (PK / SK):
 - NOTIFICATION#<id> / META — deliveries (GSI1PK=NOTIF_DUE while queued)
 - HOSTLOCK / META — host-level booking mutex {owner, expires_at}
 - AUDIT#<yyyy-mm> / <ts>#<rand> — append-only audit trail
-- SEED#v1 / META — seed marker
+- SEED#v<N> / META — seed marker; a version bump re-runs the seed as an
+  upgrade that fills gaps in existing items instead of rewriting them
 
 Provider OAuth credentials are never stored here — Dapier owns them. Only
 non-secret connection references, account identity, and health metadata.
@@ -261,13 +262,18 @@ def list_event_types() -> list[dict]:
             for i in items]
 
 
+SEED_MARKER_VERSION = 2
+
+
 def ensure_seed():
-    """Idempotent first-run seed: four event types plus the default schedule.
-    Safe under concurrent cold starts — the marker claim decides one winner
-    and every seed write is conditional."""
+    """Idempotent seed, and seed upgrade when the marker version moves.
+    Safe under concurrent cold starts — the marker claim decides one winner,
+    and every write is conditional: existing items are never rewritten with
+    seed defaults, only gap-filled (see _seed_or_upgrade_event_type)."""
     try:
         table().put_item(
-            Item=_item("SEED#v1", "META", "seed_marker", {"version": 1}),
+            Item=_item(f"SEED#v{SEED_MARKER_VERSION}", "META", "seed_marker",
+                       {"version": SEED_MARKER_VERSION}),
             ConditionExpression="attribute_not_exists(PK)",
         )
     except ClientError as exc:
@@ -275,16 +281,42 @@ def ensure_seed():
             return False
         raise
     for et in seed_event_types():
-        try:
-            put_event_type(et.to_item())
-        except ConditionalFailed:
-            pass
+        _seed_or_upgrade_event_type(et)
     schedule = seed_schedule()
     table().put_item(
         Item=_item("SCHEDULE#default", "META", "schedule", schedule),
         ConditionExpression="attribute_not_exists(PK)",
     )
     return True
+
+
+def _seed_or_upgrade_event_type(et: EventType):
+    """A fresh table gets the full seed item. A table seeded by an older
+    seed version keeps the item it already has — the host may have edited
+    it — and only receives what is genuinely missing. Today that gap is the
+    invitee questions: a deployed dtc-30 seeded before they existed would
+    otherwise never ask them, however current the code is. A non-empty
+    questions list is host configuration and stays untouched."""
+    if get_event_type(et.id) is None:
+        try:
+            put_event_type(et.to_item())
+        except ConditionalFailed:
+            pass
+        return
+    if not et.questions:
+        return
+    try:
+        table().update_item(
+            Key={"PK": f"EVENTTYPE#{et.id}", "SK": "META"},
+            UpdateExpression="SET #q = :q ADD version :one",
+            ExpressionAttributeNames={"#q": "questions"},
+            ExpressionAttributeValues={":q": et.questions, ":one": 1, ":zero": 0},
+            ConditionExpression="attribute_not_exists(#q) OR size(#q) = :zero",
+        )
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return
+        raise
 
 
 # --- schedules and blocks ---------------------------------------------------

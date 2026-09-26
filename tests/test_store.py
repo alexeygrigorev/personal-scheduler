@@ -13,6 +13,7 @@ def test_seed_creates_four_types_and_default_schedule(table):
     assert store.resolve_slug("dtc")["id"] == "dtc-30"
     assert store.resolve_slug("extended")["id"] == "flexible"
     assert store.get_schedule("default")["timezone"] == "Europe/Berlin"
+    assert len(store.get_event_type("dtc-30")["questions"]) == 3
 
 
 def test_slug_change_keeps_alias_and_bookings_reference_stable_id(table):
