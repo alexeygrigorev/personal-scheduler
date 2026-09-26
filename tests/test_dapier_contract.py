@@ -12,7 +12,7 @@ import pytest
 
 from scheduler.dapier import (DapierError, DapierNotConfigured, DapierUnavailable,
                               DtcRefreshIdentity, GrantDenied, HttpDapierClient,
-                              InsufficientScope, PROPOSED_CONNECTION_ID)
+                              InsufficientScope, CALENDAR_CONNECTION_ID)
 
 
 class _AgentAPI(BaseHTTPRequestHandler):
@@ -274,7 +274,7 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
         identity=StaticTokenIdentity("arn:secret"),
     )
 
-    access = client.get_access(PROPOSED_CONNECTION_ID,
+    access = client.get_access(CALENDAR_CONNECTION_ID,
                                ["calendar.freebusy", "calendar.events.owned"])
 
     assert access.usable()
@@ -340,7 +340,7 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
         identity=StaticTokenIdentity("arn:secret"),
     )
 
-    access = client.get_access(PROPOSED_CONNECTION_ID,
+    access = client.get_access(CALENDAR_CONNECTION_ID,
                                ["calendar.freebusy", "calendar.events.owned"])
 
     assert access.usable()

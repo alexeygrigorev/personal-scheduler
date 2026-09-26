@@ -30,7 +30,7 @@ The stack seeds four meeting types and an empty schedule on first request.
 Nothing is bookable until the host configures weekly hours. The launch
 checklist in the specification (section 17) applies: verify the Dapier
 token-factory machine-access path and calendar capability, bind connection
-`calendar-alexey` to the real Google account (the console's **Authorize with
+`google-calendar` to the real Google account (the console's **Authorize with
 Google** button runs this through Dapier's agent connect flow), pick the
 writable calendar in the same console card, set the canonical base URL and
 sender identity, and exercise the full flow against a test calendar first.
@@ -46,7 +46,7 @@ console under Event types → Questions.
 Calendar access flows through Dapier's agent API (`POST /api/agent/token`),
 which requires a DTC ID token from an enrolled machine identity. To enroll:
 
-1. In Dapier, create the `calendar-alexey` connection with the **Google
+1. In Dapier, create the `google-calendar` connection with the **Google
    Calendar** provider and scopes `calendar.freebusy`,
    `calendar.events.owned`, and `userinfo.email` (the console dialog
    prefills all three), verify the provider account, and grant the

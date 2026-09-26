@@ -284,9 +284,9 @@ def test_admin_dapier_handoff(live):
     res = call(admin_handler.lambda_handler, "/admin/api/dapier", cookies=cookies)
     assert res.statusCode == 200
     data = json.loads(res["body"])
-    assert data["connection_ref"] == "calendar-alexey"
+    assert data["connection_ref"] == "google-calendar"
     assert data["authorize_url"] == ("https://dapier.dtcdev.click"
-                                     "/api/admin/oauth/calendar-alexey/start")
+                                     "/api/admin/oauth/google-calendar/start")
     # The machine-identity connect flow: the consent URL comes back from
     # Dapier's agent API, so the host approves on Google without a Dapier
     # sign-in of their own.

@@ -311,7 +311,7 @@ Store only non-secret connection references, expected provider/account identity,
 
 ### 10.2 Contract to implement against
 
-Use an explicitly named calendar connection; proposed ID: `calendar-alexey`. Register the deployed scheduler as a distinct service consumer with permission to use only that connection. This ID is proposed configuration, not a claim that it exists.
+Use an explicitly named calendar connection; ID: `google-calendar`. Register the deployed scheduler as a distinct service consumer with permission to use only that connection.
 
 Dapier must authenticate the scheduler's enrolled machine identity, authorize the connection grant, return or provide use of a valid access token, and identify its provider, verified account, granted scopes, and expiry. The scheduler verifies the returned account and required capabilities before making a calendar request. Wrong-account responses are fatal, not a reason to fall back to another connection.
 
@@ -510,7 +510,7 @@ Before publishing availability, configure the following. Missing values may be r
 |---|---|
 | Calendar provider | Google Calendar proposed; confirm actual provider before implementing its adapter. |
 | Dapier deployment and callable contract | Use the real deployment/API after verifying token-factory and machine-consumer readiness. No guessed endpoint path. |
-| Calendar connection and account binding | `calendar-alexey` proposed; host provides/verifies the actual connection and expected account. |
+| Calendar connection and account binding | `google-calendar`; the host provides/verifies the actual connection and expected account. |
 | Selected calendar | One explicit writable calendar; no identifier inferred from the public Calendly URL. |
 | Host identity | Alexey Grigorev as display name; explicit authorized shared-auth subject still required. |
 | Community/type labels and mapping | Four seed types as specified; exact existing titles/descriptions and `/30min` mapping remain unverified. |

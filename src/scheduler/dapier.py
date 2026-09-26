@@ -22,7 +22,7 @@ import urllib.request
 from dataclasses import dataclass
 
 
-PROPOSED_CONNECTION_ID = "calendar-alexey"
+CALENDAR_CONNECTION_ID = "google-calendar"
 
 
 class DapierError(Exception):
@@ -81,7 +81,7 @@ class FakeDapierClient(DapierClient):
         self.provider = provider
         self.account = account
         self.scopes = list(scopes)
-        self.grants = {PROPOSED_CONNECTION_ID}
+        self.grants = {CALENDAR_CONNECTION_ID}
         self.outage = False
         self.wrong_account: str | None = None
         self.missing_scopes: set[str] = set()

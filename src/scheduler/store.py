@@ -332,7 +332,7 @@ def delete_block(block_id: str):
 # --- calendar connection (non-secret metadata only) --------------------------
 
 CALENDAR_DEFAULTS = {
-    "dapier_connection_ref": "calendar-alexey",
+    "dapier_connection_ref": "google-calendar",
     "expected_provider": "google",
     "expected_account": "",
     "selected_calendar_id": "",

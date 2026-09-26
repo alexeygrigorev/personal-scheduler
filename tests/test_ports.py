@@ -67,8 +67,8 @@ def test_auth_loss_fails_closed():
 def test_dapier_renews_without_refresh_tokens():
     """C01: the scheduler obtains usable access; rotation stays in Dapier."""
     client = dapier.FakeDapierClient()
-    first = client.get_access("calendar-alexey", ["calendar.events.owned"])
-    second = client.get_access("calendar-alexey", ["calendar.events.owned"])
+    first = client.get_access(dapier.CALENDAR_CONNECTION_ID, ["calendar.events.owned"])
+    second = client.get_access(dapier.CALENDAR_CONNECTION_ID, ["calendar.events.owned"])
     assert first.usable() and second.usable()
     assert first.token != second.token
     assert client.renewals == 2
@@ -79,7 +79,7 @@ def test_dapier_wrong_account_is_fatal_not_a_fallback():
     client = dapier.FakeDapierClient()
     client.wrong_account = "someone-else@example.com"
     with pytest.raises(dapier.AccountMismatch):
-        client.get_access("calendar-alexey", [])
+        client.get_access(dapier.CALENDAR_CONNECTION_ID, [])
 
 
 def test_dapier_denies_ungranted_connections_and_outages_close_booking():
@@ -89,11 +89,11 @@ def test_dapier_denies_ungranted_connections_and_outages_close_booking():
         client.get_access("youtube-someone", [])
     client.missing_scopes.add("calendar.events.owned")
     with pytest.raises(dapier.InsufficientScope):
-        client.get_access("calendar-alexey", ["calendar.events.owned"])
+        client.get_access(dapier.CALENDAR_CONNECTION_ID, ["calendar.events.owned"])
     client.missing_scopes.clear()
     client.outage = True
     with pytest.raises(dapier.DapierUnavailable):
-        client.get_access("calendar-alexey", [])
+        client.get_access(dapier.CALENDAR_CONNECTION_ID, [])
 
 
 def test_email_outbox_and_injected_failure():
