@@ -15,7 +15,10 @@ WEB_DIR = Path(__file__).parent.parent / "web"
 ASSETS = {"app.css": "text/css; charset=utf-8",
           "booking.js": "text/javascript; charset=utf-8",
           "manage.js": "text/javascript; charset=utf-8",
-          "admin.js": "text/javascript; charset=utf-8"}
+          "admin.js": "text/javascript; charset=utf-8",
+          "fonts/IBMPlexSans-VF.woff2": "font/woff2",
+          "fonts/IBMPlexMono-Regular.woff2": "font/woff2",
+          "fonts/IBMPlexMono-Medium.woff2": "font/woff2"}
 
 
 def asset_response(name):
@@ -74,7 +77,7 @@ def _initials(name):
 
 
 def shell(title, body, *, scripts=(), brand_name=None, head_side="", main_class="",
-          tz_note=None, head_extra="", admin_link=True):
+          tz_note=None, head_extra="", admin_link=True, body_class=""):
     mark = _esc(_initials(brand_name)) if brand_name else icon("calendar")
     if head_side:
         side = f'<div class="site-head-side">{head_side}</div>'
@@ -89,20 +92,21 @@ def shell(title, body, *, scripts=(), brand_name=None, head_side="", main_class=
         side = ""
     tags = "\n".join(f'<script src="/assets/{name}" defer></script>' for name in scripts)
     favicon = ("<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' "
-               "viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' "
+               "viewBox='0 0 24 24' fill='none' stroke='%230b6745' stroke-width='2' stroke-linecap='round' "
                "stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E"
                "%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E"
                "%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E\">")
     foot_note = f'<span id="tz-note">{_esc(tz_note)}</span>' if tz_note else ""
     main_cls = f"wrap {main_class}" if main_class else "wrap"
+    body_cls = f' class="{_esc(body_class)}"' if body_class else ""
     return (f"<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
             f"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             f"<meta name=\"color-scheme\" content=\"light dark\">\n"
-            f"<meta name=\"theme-color\" media=\"(prefers-color-scheme: light)\" content=\"#f6f7fb\">\n"
-            f"<meta name=\"theme-color\" media=\"(prefers-color-scheme: dark)\" content=\"#0f1524\">\n{favicon}\n"
+            f"<meta name=\"theme-color\" media=\"(prefers-color-scheme: light)\" content=\"#eeede6\">\n"
+            f"<meta name=\"theme-color\" media=\"(prefers-color-scheme: dark)\" content=\"#101611\">\n{favicon}\n"
             f"<title>{_esc(title)}</title>\n"
             f"<link rel=\"stylesheet\" href=\"/assets/app.css\">\n{tags}{head_extra}\n</head>\n"
-            f"<body>\n<a class=\"skip\" href=\"#main\">Skip to content</a>\n"
+            f"<body{body_cls}>\n<a class=\"skip\" href=\"#main\">Skip to content</a>\n"
             f"<header class=\"site-head\"><div class=\"wrap\">"
             f"<a class=\"brand\" href=\"/\"><span class=\"brand-mark\">{mark}</span>"
             f"<span class=\"brand-name\">{_esc(brand_name or 'Scheduler')}</span></a>{side}"
@@ -658,18 +662,29 @@ def login_gate(login_url):
 
 
 def admin_shell(email):
-    side = (f"<span class=\"whoami\">Signed in as <strong>{_esc(email)}</strong></span>"
-            f"<a href=\"/auth/logout\">Sign out</a>")
-    body = f"""<div class="admin-head"><h1>Scheduler admin</h1></div>
-<nav class="tabs" aria-label="Admin sections"><button data-tab="overview" aria-pressed="true">Overview</button>
-<button data-tab="types" aria-pressed="false">Event types</button>
-<button data-tab="bookings" aria-pressed="false">Bookings</button>
-<button data-tab="settings" aria-pressed="false">Settings</button></nav>
+    # The console wears the operations-register shell: a dark rail carries
+    # identity, the section switcher, and the session foot; the canvas keeps
+    # a quiet topbar over the working sections. The switcher keeps the
+    # .tabs hooks (data-tab buttons, aria-pressed) so admin.js is untouched.
+    nav = "".join(
+        f'<button class="nav-item" data-tab="{tab}" aria-pressed="{"true" if tab == "overview" else "false"}">'
+        f"{label}</button>"
+        for tab, label in (("overview", "Overview"), ("types", "Event types"),
+                           ("bookings", "Bookings"), ("settings", "Settings")))
+    body = f"""<div class="admin-shell">
+<aside class="admin-rail">
+<div class="rail-brand"><span class="rail-mark">{icon('calendar')}</span><span class="rail-wordmark">Scheduler</span></div>
+<nav class="tabs" aria-label="Admin sections">{nav}</nav>
+<div class="rail-foot"><span class="whoami">Signed in as <strong>{_esc(email)}</strong></span><a href="/auth/logout">Sign out</a></div>
+</aside>
+<div class="admin-canvas">
+<header class="topbar"><h1>Scheduler admin</h1></header>
 <section class="admin-section" id="overview"></section>
 <section class="admin-section" id="types" hidden></section>
 <section class="admin-section" id="bookings" hidden></section>
 <section class="admin-section" id="settings" hidden></section>
+</div>
+</div>
 <div id="admin-root" data-config='{json.dumps({"zones": list(COMMON_ZONES)})}'></div>"""
     return http.html_response(200, shell("Scheduler admin", body, scripts=("admin.js",),
-                                         head_side=side,
-                                         tz_note="Times shown in the Settings timezone"))
+                                         admin_link=False, body_class="admin"))

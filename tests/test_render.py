@@ -100,8 +100,8 @@ def test_dark_scheme_answers_every_color_token():
             f"{token} has no dark value"
     # White labels sit on --accent-fill; the fixed light-theme fill is what
     # keeps them at 4.5:1, so the dark block must not lighten it.
-    assert "--accent-fill: #4f46e5;" in root
-    assert "--accent-fill: #4f46e5;" in dark_root
+    assert "--accent-fill: #0b6745;" in root
+    assert "--accent-fill: #0b6745;" in dark_root
 
 
 def test_dark_palette_stays_off_paper():
