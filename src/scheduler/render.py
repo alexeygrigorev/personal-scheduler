@@ -514,7 +514,7 @@ def manage_page(*, booking, token, ics_url, durations, event_title="", host_name
     # as confirmed; the record (reference, when, answers) is all that remains.
     meeting_is_live = status != "canceled"
     joining = (booking.get("conference", {}) or {}).get("link", "") or "See your calendar invitation."
-    if (booking.get("conference", {}) or {}).get("status") == "pending":
+    if (booking.get("conference", {}) or {}).get("status") in ("pending", "failed"):
         joining = "Joining details are being prepared."
     joining_html = (f"<a class=\"join-link\" href=\"{_esc(joining)}\">{_esc(joining)}</a>"
                     if str(joining).startswith("http") else _esc(joining))
@@ -591,7 +591,7 @@ def receipt_page(*, operation, booking=None, host_name="", ics_url=""):
         # invitee who opens the receipt link later still needs the room.
         joining = (booking.get("conference", {}) or {}).get("link", "") \
             or "See your calendar invitation."
-        if (booking.get("conference", {}) or {}).get("status") == "pending":
+        if (booking.get("conference", {}) or {}).get("status") in ("pending", "failed"):
             joining = "Joining details are being prepared."
         joining_html = (f"<a class=\"join-link\" href=\"{_esc(joining)}\">{_esc(joining)}</a>"
                         if str(joining).startswith("http") else _esc(joining))

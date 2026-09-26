@@ -212,7 +212,7 @@
   }
 
   async function loadOverview() {
-    const [data, settings, typeData, upcoming, conn, calOpts] = await Promise.all([
+    const [data, settings, typeData, upcoming, conn, calOpts, zoom] = await Promise.all([
       call("/overview"),
       hostSettings(),
       call("/event-types").catch(() => ({})),
@@ -221,6 +221,7 @@
       call("/bookings?status=confirmed").catch(() => null),
       call("/dapier").catch(() => ({})),
       call("/calendar/options").catch(() => null),
+      call("/zoom").catch(() => ({})),
     ]);
     const titles = new Map((typeData.event_types || []).map((t) => [t.id, t.title]));
     const health = data.health || {};
@@ -288,6 +289,43 @@
         "Not authorized yet — Authorize with Google verifies your account and grants this scheduler access."));
     }
     connPanel.appendChild(connAccount);
+    // The Zoom line rides in the same connection panel: meetings on
+    // auto_zoom event types need this connection authorized, and the badge
+    // answers "is it live" the same way the calendar line does.
+    const zoomLine = el("p");
+    zoomLine.className = "conn-line";
+    zoomLine.appendChild(el("strong", "Zoom meetings "));
+    zoomLine.appendChild(document.createTextNode("· "));
+    zoomLine.appendChild(healthBadge(zoom.health || "unknown"));
+    if (zoom.expected_account) {
+      zoomLine.appendChild(document.createTextNode(" · "));
+      zoomLine.appendChild(document.createTextNode(zoom.expected_account));
+    }
+    if (zoom.health !== "ok" && conn.connection_ref) {
+      const zoomAuth = el("button", "Authorize with Zoom");
+      zoomAuth.className = "btn sm secondary";
+      zoomAuth.type = "button";
+      zoomAuth.addEventListener("click", async () => {
+        // Same machine-identity hand-off as the Google button: the host
+        // approves on Zoom's own screen, never inside Dapier.
+        zoomAuth.disabled = true;
+        try {
+          const res = await call("/zoom/connect", { method: "POST", body: "{}" });
+          window.location.href = res.authorize_url;
+        } catch (err) {
+          zoomAuth.disabled = false;
+          const note = el("span");
+          note.className = "saved-note error visible";
+          note.setAttribute("role", "alert");
+          note.textContent = `Could not start the authorization — ${why(err)}.`;
+          zoomLine.appendChild(note);
+          setTimeout(() => note.remove(), 4000);
+        }
+      });
+      zoomLine.appendChild(document.createTextNode(" "));
+      zoomLine.appendChild(zoomAuth);
+    }
+    connPanel.appendChild(zoomLine);
     if (calOpts) {
       // The shelf of writable calendars follows the connection facts: with
       // no calendar selected every booking attempt fails closed, so the
@@ -730,6 +768,11 @@
   // newer one.
   const PICKABLE_DURATIONS = [30, 60, 90, 120, 150, 180]; // mirrors models.ALLOWED_FLEXIBLE_DURATIONS
 
+  // The one open row editor across the table — details or questions — as
+  // LOCATION_MODES mirrors models.LOCATION_MODES: an unknown stored mode
+  // would silently corrupt the select's state on save.
+  const LOCATION_MODES = ["fixed_text", "fixed_url", "auto_zoom", "auto_meet", "provided_later"];
+
   function openDetailsEditor(t, hostRow) {
     // The row's position among the type rows: the post-save reload rebuilds
     // the table, and the keyboard must land back on this row's Details
@@ -750,6 +793,8 @@
       mode: t.duration_mode === "selectable" ? "selectable" : "fixed",
       fixed: Number.isFinite(seedFixed) && seedFixed > 0 ? seedFixed : 30,
       allowed: new Set(t.allowed_durations || []),
+      location_mode: LOCATION_MODES.includes(t.location_mode) ? t.location_mode : "fixed_text",
+      location_text: t.location_text || "",
     };
     const save = el("button", "Save details");
     save.type = "button";
@@ -819,6 +864,42 @@
       slugCode.textContent = `/${slugInput.value.trim() || "…"}`;
     });
     panel.appendChild(slugField);
+    // Where the meeting happens: a free-text place, a link, or an
+    // automatically created Zoom / Google Meet room. The text input only
+    // exists for the modes that actually read it.
+    const LOCATION_LABELS = [
+      ["fixed_text", "A place or note"],
+      ["fixed_url", "A link invitees open"],
+      ["auto_zoom", "Zoom — link created automatically"],
+      ["auto_meet", "Google Meet — link created automatically"],
+      ["provided_later", "Decided later"],
+    ];
+    const locField = el("div");
+    locField.className = "field";
+    const locLab = el("label", "Where the meeting happens");
+    locLab.htmlFor = "det-location";
+    const locSelect = el("select");
+    locSelect.id = "det-location";
+    for (const [value, label] of LOCATION_LABELS) {
+      const opt = el("option", label);
+      opt.value = value;
+      if (draft.location_mode === value) opt.selected = true;
+      locSelect.appendChild(opt);
+    }
+    const locInput = el("input");
+    locInput.id = "det-location-text";
+    locInput.value = draft.location_text;
+    locInput.setAttribute("aria-label", "Location details");
+    const syncLocation = () => {
+      draft.location_mode = locSelect.value;
+      locInput.hidden = locSelect.value !== "fixed_text" && locSelect.value !== "fixed_url";
+      locInput.placeholder = locSelect.value === "fixed_url"
+        ? "https://meet.example/room" : "Room 4, phone call, …";
+    };
+    locSelect.addEventListener("change", syncLocation);
+    syncLocation();
+    locField.append(locLab, locSelect, locInput);
+    panel.appendChild(locField);
     const durField = el("div");
     durField.className = "field";
     const durGroup = el("div");
@@ -982,6 +1063,12 @@
       const payload = {
         title: draft.title, description, slug: draft.slug,
         duration_mode: draft.mode, expected_version: t.version,
+        // The location rides with the details: the mode plus the text only
+        // for the modes that read it, so an automatic mode never keeps a
+        // stale address from an earlier choice.
+        location_mode: draft.location_mode,
+        location_text: draft.location_mode === "fixed_text" || draft.location_mode === "fixed_url"
+          ? locInput.value.trim() : "",
       };
       if (draft.mode === "fixed") payload.fixed_duration_min = draft.fixed;
       else payload.allowed_durations = [...draft.allowed].sort((a, b) => a - b);

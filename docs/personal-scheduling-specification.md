@@ -333,9 +333,11 @@ Production readiness depends on an end-to-end demonstration that the deployed sc
 
 ## 11. Conferencing and meeting location
 
-Each event type must have an explicit location mode. Support host-entered location/instructions or a fixed meeting URL in the first release. Automatic Google Meet generation is the proposed additional mode when Google Calendar and the selected calendar support it; Zoom and other provider-specific meeting APIs are outside scope.
+Each event type must have an explicit location mode. Support host-entered location/instructions or a fixed meeting URL in the first release. Automatic Google Meet generation is the proposed additional mode when Google Calendar and the selected calendar support it. Automatic Zoom meeting creation (`auto_zoom`) is now supported: the meeting is created through Dapier's `zoom-meetings` connection exactly like calendar access — Zoom OAuth lives in Dapier, the scheduler holds only short-lived tokens in memory.
 
 For automatic conferencing, generate a unique conference per booking and preserve it on a simple time reschedule when appropriate. Google conference creation is asynchronous and exposes pending/success/failure states; do not assume a link is available immediately with the event response. [S6]
+
+Zoom meeting creation is synchronous and precedes the calendar write, so the join URL is part of the invitation itself. A Zoom failure fails the booking closed (the invitee retries); a Zoom failure during interrupted-operation recovery confirms the booking with a pending/failed conference record, patches the link onto the event when it lands, and flags the host. Reschedules move the Zoom meeting best-effort after the calendar settles — a Zoom move failure never rolls the booking back, it is flagged for the host. Cancellations delete the meeting best-effort; a missing meeting counts as deleted.
 
 Store conference status separately from booking status. If the calendar event exists but its conference is pending, the booking remains confirmed and the receipt says “Joining details are being prepared.” Retry and deliver the link when ready. On persistent failure, alert the host and allow explicit replacement instructions. Do not create another calendar event or silently insert an unrelated permanent meeting room.
 
@@ -517,7 +519,7 @@ Before publishing availability, configure the following. Missing values may be r
 | Availability | Host supplies weekly hours, breaks, holidays, overrides, and any special long-session windows. |
 | Timezone | `Europe/Berlin` proposed. |
 | Scheduling defaults | 30-minute grid, 12-hour notice, 60-day horizon, zero buffers, unlimited daily count/minutes until configured. |
-| Location/conferencing | Host chooses fixed instructions/link or automatic Meet where supported. |
+| Location/conferencing | Host chooses fixed instructions/link, automatic Meet, or automatic Zoom (via the Dapier `zoom-meetings` connection). |
 | Email | Verify outbound capability, sender identity, host notification address, and reminder settings. |
 | Public domain and privacy | Host supplies canonical base URL, contact fallback, retention policy, and final visibility choices. |
 

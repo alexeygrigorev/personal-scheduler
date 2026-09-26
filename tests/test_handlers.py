@@ -460,3 +460,34 @@ def test_settings_save_refuses_an_empty_display_name(live):
     stored = json.loads(call(admin_handler.lambda_handler, "/admin/api/settings",
                              cookies=cookies)["body"])["host"]
     assert (stored.get("display_name") or "").strip() != ""
+
+
+def test_admin_zoom_status_and_connect(live):
+    """The Zoom panel's probe answers "is it live" honestly: an ungranted
+    connection reads as not_connected, not as an outage — and the authorize
+    hand-off starts on Zoom's own consent screen."""
+    cookies = [admin_session("host@datatalks.club")]
+    res = call(admin_handler.lambda_handler, "/admin/api/zoom", cookies=cookies)
+    assert res.statusCode == 200
+    data = json.loads(res["body"])
+    assert data["connection_ref"] == "zoom-meetings"
+    assert data["expected_provider"] == "zoom"
+    assert data["health"] == "not_connected"
+    denied = call(admin_handler.lambda_handler, "/admin/api/zoom/connect",
+                  method="POST", body={}, cookies=cookies)
+    assert denied.statusCode == 409
+    # The operator grants the connection to this scheduler's agent: the same
+    # probe now answers ok, and the hand-off returns a consent URL.
+    wiring.get()[0].grants.add("zoom-meetings")
+    wiring.get()[0].scopes.extend(
+        ["meeting:write:meeting", "meeting:update:meeting", "meeting:delete:meeting"])
+    wiring.get()[0].scopes.extend(
+        ["meeting:write:meeting", "meeting:update:meeting", "meeting:delete:meeting"])
+    wiring.get()[0].scopes.extend(
+        ["meeting:write:meeting", "meeting:update:meeting", "meeting:delete:meeting"])
+    ok = call(admin_handler.lambda_handler, "/admin/api/zoom", cookies=cookies)
+    assert json.loads(ok["body"])["health"] == "ok"
+    connect = call(admin_handler.lambda_handler, "/admin/api/zoom/connect",
+                   method="POST", body={}, cookies=cookies)
+    assert connect.statusCode == 200
+    assert "authorize_url" in json.loads(connect["body"])

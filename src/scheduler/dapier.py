@@ -24,6 +24,10 @@ from dataclasses import dataclass
 
 CALENDAR_CONNECTION_ID = "google-calendar"
 
+# Zoom meetings ride the same agent API: the operator creates an OAuth
+# connection with this id in Dapier and grants it to the scheduler's agent.
+ZOOM_CONNECTION_ID = "zoom-meetings"
+
 
 class DapierError(Exception):
     pass

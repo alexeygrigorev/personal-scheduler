@@ -22,6 +22,7 @@ from .calendar import (AuthLost, CalendarError, ConflictDetected, DefinitiveFail
                        IncompleteResult, UnknownOutcome)
 from .models import (EventType, canonical_payload, parse_iso, utcnow, validate_duration,
                      validate_invitee)
+from .zoom import ZoomError
 
 OPERATION_LEASE_SECONDS = 120
 LOCK_TTL_SECONDS = 60
@@ -173,7 +174,9 @@ def _provider_event_payload(*, event_type: EventType, invitee_name: str, invitee
     location = event_type.location_text
     if event_type.location_mode == "fixed_url":
         location = event_type.location_text
-    elif event_type.location_mode == "provided_later":
+    elif event_type.location_mode in ("auto_zoom", "provided_later"):
+        # The Zoom join URL (when one exists) arrives through location_link;
+        # without it the invite honestly says the link follows.
         location = "Joining details will be provided separately."
     body: dict = {
         "summary": f"{event_type.title}: {invitee_name}",
@@ -202,6 +205,30 @@ def _conference_status(provider_event: dict | None, mode: str) -> dict:
     if video and video[0].get("uri"):
         return {"mode": mode, "status": "ready", "link": video[0]["uri"]}
     return {"mode": mode, "status": "pending", "link": ""}
+
+
+def _booking_conference(provider_event: dict | None, mode: str,
+                        zoom_meeting=None) -> dict:
+    """The booking's joining record. A Zoom meeting created before the
+    calendar write is ready immediately; on the recovery path (meeting
+    unknown) the record starts pending until the link lands."""
+    if mode == "auto_zoom":
+        if zoom_meeting is not None and getattr(zoom_meeting, "join_url", ""):
+            return {"mode": mode, "status": "ready", "link": zoom_meeting.join_url,
+                    "meeting_id": zoom_meeting.id}
+        return {"mode": mode, "status": "pending", "link": ""}
+    return _conference_status(provider_event, mode)
+
+
+def _require_zoom_meeting(zoom, *, topic, start, duration_min, invitee_email):
+    """Create the booking's Zoom meeting, or fail closed: an auto_zoom event
+    must never confirm with an invite promising a link that cannot exist."""
+    if zoom is None:
+        raise BookingError("video_link_unavailable",
+                           "Video-link creation is temporarily unavailable. Try again shortly.",
+                           status=503)
+    return zoom.create_meeting(topic=topic, start=start, duration_min=duration_min,
+                               invitee_email=invitee_email)
 
 
 def _queue_booking_notifications(booking: dict, *, kind_prefix="", manage_url: str = ""):
@@ -244,7 +271,7 @@ def _public_receipt(booking: dict) -> dict:
 def create_booking(*, event_type_id: str, duration_min: int, start_iso: str, name: str,
                    email: str, notes: str = "", answers: dict | None = None,
                    display_tz: str = "UTC", idempotency_key: str = "",
-                   dapier_client=None, provider=None, now=None) -> dict:
+                   dapier_client=None, provider=None, zoom=None, now=None) -> dict:
     at = _now(now)
     if not idempotency_key:
         raise BookingError("invalid_input", "An idempotency key is required.", status=400)
@@ -338,6 +365,29 @@ def create_booking(*, event_type_id: str, duration_min: int, start_iso: str, nam
     connection, _access = _verify_calendar_access(dapier_client)
     calendar_id = connection["selected_calendar_id"]
     correlation = f"create:{operation_id}"
+    # The Zoom meeting is created before the calendar write so the join URL
+    # rides inside the invitation itself — invitees never see an event that
+    # later grows a link. Any Zoom failure fails the booking closed: an
+    # auto_zoom event without a link is not a booking the host agreed to.
+    zoom_meeting = None
+    if event_type.location_mode == "auto_zoom":
+        try:
+            zoom_meeting = _require_zoom_meeting(
+                zoom, topic=f"{event_type.title}: {name.strip()}",
+                start=start, duration_min=duration_min,
+                invitee_email=email.strip().lower())
+        except BookingError:
+            store.update_reservation(reservation_id, {"state": "released"})
+            store.update_operation(operation_id, {"state": "failed",
+                                                  "error_sanitized": "video_link_unavailable"})
+            raise
+        except ZoomError as exc:
+            store.update_reservation(reservation_id, {"state": "released"})
+            store.update_operation(operation_id, {"state": "failed",
+                                                  "error_sanitized": "video_link_unavailable"})
+            raise BookingError("video_link_unavailable",
+                               "Video-link creation is temporarily unavailable. Try again shortly.",
+                               status=503) from exc
     try:
         fresh = _fresh_busy(provider, calendar_id, protected_start, protected_end)
         if fresh:
@@ -348,7 +398,9 @@ def create_booking(*, event_type_id: str, duration_min: int, start_iso: str, nam
                                     invitee_email=email.strip().lower(), notes=notes or "",
                                     answers=answers,
                                     start=start, end=end,
-                                    schedule_tz=schedule.get("timezone", "Europe/Berlin")),
+                                    schedule_tz=schedule.get("timezone", "Europe/Berlin"),
+                                    location_link=zoom_meeting.join_url
+                                    if zoom_meeting is not None else ""),
             correlation)
     except ConflictDetected as exc:
         store.update_reservation(reservation_id, {"state": "released"})
@@ -368,12 +420,35 @@ def create_booking(*, event_type_id: str, duration_min: int, start_iso: str, nam
     return _confirm_create(operation_id=operation_id, reservation_id=reservation_id,
                            provider_event=provider_event, intended=intended,
                            event_type=event_type, schedule=schedule, display_tz=display_tz,
-                           provider=provider, calendar_id=calendar_id, at=at)
+                           provider=provider, calendar_id=calendar_id, at=at,
+                           zoom=zoom, zoom_meeting=zoom_meeting)
 
 
 def _confirm_create(*, operation_id, reservation_id, provider_event, intended,
-                    event_type, schedule, display_tz, provider, calendar_id, at):
+                    event_type, schedule, display_tz, provider, calendar_id, at,
+                    zoom=None, zoom_meeting=None):
     booking_id = security.new_id("bk_")
+    zoom_failed = False
+    zoom_recovered = False
+    if event_type.location_mode == "auto_zoom" and zoom_meeting is None and zoom is not None:
+        # Recovery path: the provider event exists but the process died
+        # before confirmation, so the meeting reference was lost. Create a
+        # fresh one now and patch the join URL onto the existing event; a
+        # meeting lost this way stays behind as an orphan the host can delete.
+        zoom_recovered = True
+        try:
+            zoom_meeting = _require_zoom_meeting(
+                zoom, topic=f"{event_type.title}: {intended.get('name', '')}",
+                start=parse_iso(intended["start"]),
+                duration_min=int(intended.get("duration", 30)),
+                invitee_email=intended.get("email", ""))
+        except ZoomError:
+            zoom_meeting = None
+            zoom_failed = True
+    conference = _booking_conference(provider_event, event_type.location_mode,
+                                     zoom_meeting)
+    if zoom_failed:
+        conference = {**conference, "status": "failed"}
     booking = {
         "id": booking_id, "reference": security.new_reference(),
         "event_type_id": intended["type"], "snapshot": event_type.snapshot(),
@@ -385,7 +460,7 @@ def _confirm_create(*, operation_id, reservation_id, provider_event, intended,
         "calendar_ref": calendar_id, "provider_event_id": (provider_event or {}).get("id", ""),
         "provider_uid": (provider_event or {}).get("uid", (provider_event or {}).get("id", "")),
         "provider_version": str((provider_event or {}).get("version", "1")),
-        "conference": _conference_status(provider_event, event_type.location_mode),
+        "conference": conference,
         "status": "confirmed", "revision": 1,
         "created_at": at.isoformat(), "updated_at": at.isoformat(),
     }
@@ -396,6 +471,21 @@ def _confirm_create(*, operation_id, reservation_id, provider_event, intended,
         # the operation recoverable; reconciliation completes it.
         store.update_operation(operation_id, {"state": "unknown", "error_sanitized": "confirm_interrupted"})
         return {"status": "pending", "operation_id": operation_id}
+    if zoom_recovered and conference.get("mode") == "auto_zoom" \
+            and conference.get("status") == "ready" and booking.get("provider_event_id"):
+        # The invite was written without the link: the patch pushes the join
+        # URL onto the calendar event so every attendee sees it, and the
+        # recorded version follows so a later reschedule does not fail its
+        # optimistic check. A failed patch is non-fatal — the record and
+        # emails still carry the link.
+        try:
+            patched = provider.update_event(calendar_id, booking["provider_event_id"],
+                                            {"location": conference["link"][:500]})
+            store.update_booking(booking_id, {"provider_version":
+                                              str((patched or {}).get("version", "2"))})
+        except CalendarError:
+            store.audit("system", "booking.zoom_link_patch_failed", "booking", booking_id,
+                        actor_ref=booking["reference"], result="link in record only")
     if not str(reservation_id).startswith("res_orphan_"):
         store.update_reservation(reservation_id, {"state": "consumed"})
     store.update_operation(operation_id, {"state": "succeeded", "booking_id": booking_id})
@@ -471,7 +561,7 @@ def get_operation_status(operation_id: str) -> dict:
     return result
 
 
-def reconcile_operation(operation_id: str, *, provider=None, now=None) -> dict:
+def reconcile_operation(operation_id: str, *, provider=None, zoom=None, now=None) -> dict:
     """Recover stalled work. Lease expiry never proves failure: the interval
     stays protected until the provider record settles the question."""
     at = _now(now)
@@ -488,11 +578,11 @@ def reconcile_operation(operation_id: str, *, provider=None, now=None) -> dict:
         event = None
     kind = operation.get("kind")
     if kind == "create":
-        return _reconcile_create(operation, event, calendar_id, provider, at)
+        return _reconcile_create(operation, event, calendar_id, provider, at, zoom=zoom)
     if kind == "cancel":
         return _reconcile_cancel(operation, provider, calendar_id, at)
     if kind == "reschedule":
-        return _reconcile_reschedule(operation, provider, calendar_id, at)
+        return _reconcile_reschedule(operation, provider, calendar_id, at, zoom=zoom)
     return _reconcile_backoff(operation, at)
 
 
@@ -511,7 +601,7 @@ def _reconcile_backoff(operation, at) -> dict:
     return {"status": "pending", "operation_id": operation["id"]}
 
 
-def _reconcile_create(operation, event, calendar_id, provider, at) -> dict:
+def _reconcile_create(operation, event, calendar_id, provider, at, zoom=None) -> dict:
     operation_id = operation["id"]
     if event is not None:
         intended = operation.get("intended", {})
@@ -530,7 +620,7 @@ def _reconcile_create(operation, event, calendar_id, provider, at) -> dict:
             operation_id=operation_id, reservation_id=_reservation_for(operation_id),
             provider_event=event, intended=intended, event_type=event_type,
             schedule=schedule, display_tz=intended.get("tz", "UTC"),
-            provider=provider, calendar_id=calendar_id, at=at)
+            provider=provider, calendar_id=calendar_id, at=at, zoom=zoom)
         return confirmed if confirmed.get("status") == "confirmed" \
             else {"status": "pending", "operation_id": operation_id}
     return _reconcile_backoff(operation, at)
@@ -570,7 +660,7 @@ def _reconcile_cancel(operation, provider, calendar_id, at) -> dict:
     return _reconcile_backoff(operation, at)
 
 
-def _reconcile_reschedule(operation, provider, calendar_id, at) -> dict:
+def _reconcile_reschedule(operation, provider, calendar_id, at, zoom=None) -> dict:
     """A pending reschedule keeps the original booking effective until the new
     provider state is established; on definitive failure the new protection
     releases and the original stands."""
@@ -606,6 +696,9 @@ def _reconcile_reschedule(operation, provider, calendar_id, at) -> dict:
                                      expected_revision=int(operation.get("revision_expected", 0)))
             except store.ConditionalFailed:
                 return _reconcile_backoff(operation, at)
+            _retire_zoom_meeting(zoom, booking, moved_to={
+                "start": new_start, "duration_min": int(intended.get("duration",
+                                                                     booking.get("duration_min", 30)))})
             _release_operation_reservation(operation_id)
             store.update_operation(operation_id, {"state": "succeeded", "booking_id": booking["id"]})
             store.suppress_booking_notifications(booking["id"])
@@ -619,6 +712,28 @@ def _reconcile_reschedule(operation, provider, calendar_id, at) -> dict:
         return {"status": "failed", "operation_id": operation_id}
     return _reconcile_backoff(operation, at)
     return {"status": "pending", "operation_id": operation_id}
+
+
+def _retire_zoom_meeting(zoom, booking: dict, *, moved_to: dict | None = None) -> None:
+    """Best-effort Zoom cleanup/refresh once the calendar record has settled.
+    The calendar event is authoritative; a Zoom failure never rolls the
+    booking back — it is flagged for the host instead."""
+    conference = booking.get("conference") or {}
+    meeting_id = str(conference.get("meeting_id") or "")
+    if conference.get("mode") != "auto_zoom" or not meeting_id or zoom is None:
+        return
+    try:
+        if moved_to is not None:
+            zoom.update_meeting(meeting_id, start=moved_to["start"],
+                                duration_min=moved_to["duration_min"])
+        else:
+            zoom.delete_meeting(meeting_id)
+    except ZoomError:
+        store.audit("system",
+                    "booking.zoom_update_failed" if moved_to else "booking.zoom_delete_failed",
+                    "booking", booking.get("id", ""),
+                    actor_ref=booking.get("reference", ""),
+                    result="meeting time stale" if moved_to else "meeting left behind")
 
 
 def _reservation_for(operation_id: str) -> str:
@@ -638,7 +753,7 @@ def _release_operation_reservation(operation_id: str):
 
 def cancel_booking(*, booking_id: str, actor: str, expected_revision: int,
                    idempotency_key: str, reason: str = "", provider=None,
-                   host_override: bool = False, now=None) -> dict:
+                   zoom=None, host_override: bool = False, now=None) -> dict:
     at = _now(now)
     booking = store.get_booking(booking_id)
     if booking is None:
@@ -704,6 +819,7 @@ def cancel_booking(*, booking_id: str, actor: str, expected_revision: int,
                                           "revision": int(current.get("revision", 0)) + 1,
                                           "pending_action": ""},
                              expected_revision=int(expected_revision))
+        _retire_zoom_meeting(zoom, current)
         store.update_operation(operation_id, {"state": "succeeded", "booking_id": booking_id})
         canceled = store.get_booking(booking_id)
         store.queue_notification({"booking_id": booking_id, "revision": canceled["revision"],
@@ -730,7 +846,7 @@ def cancel_booking(*, booking_id: str, actor: str, expected_revision: int,
 def reschedule_booking(*, booking_id: str, actor: str, expected_revision: int,
                        new_start_iso: str, new_duration_min: int | None,
                        idempotency_key: str, dapier_client=None, provider=None,
-                       host_override: bool = False, now=None) -> dict:
+                       zoom=None, host_override: bool = False, now=None) -> dict:
     at = _now(now)
     booking = store.get_booking(booking_id)
     if booking is None:
@@ -889,6 +1005,8 @@ def reschedule_booking(*, booking_id: str, actor: str, expected_revision: int,
         return {"status": "pending", "operation_id": operation_id}
     store.update_reservation(new_reservation, {"state": "consumed"})
     store.update_operation(operation_id, {"state": "succeeded", "booking_id": booking_id})
+    _retire_zoom_meeting(zoom, current, moved_to={"start": new_start,
+                                                  "duration_min": duration_min})
     store.suppress_booking_notifications(booking_id)
     store.revoke_booking_capabilities(booking_id)
     raw_token, digest = security.new_management_token()
@@ -1006,12 +1124,12 @@ def _joining_text(booking: dict) -> str:
     conference = booking.get("conference", {}) or {}
     if conference.get("status") == "ready" and conference.get("link"):
         return conference["link"]
-    if conference.get("status") == "pending":
+    if conference.get("status") in ("pending", "failed"):
         return "Joining details are being prepared."
     return "See your calendar invitation."
 
 
-def reconcile_pending_operations(*, provider=None, now=None) -> dict:
+def reconcile_pending_operations(*, provider=None, zoom=None, now=None) -> dict:
     """Maintenance tick: recover stalled work and keep protection until each
     outcome is known. Safe to run concurrently and repeatedly."""
     at = _now(now)
@@ -1027,7 +1145,7 @@ def reconcile_pending_operations(*, provider=None, now=None) -> dict:
                 and int(operation.get("attempts", 0)) < 1:
             result["pending"] += 1
             continue
-        outcome = reconcile_operation(operation["id"], provider=provider, now=at)
+        outcome = reconcile_operation(operation["id"], provider=provider, zoom=zoom, now=at)
         if outcome.get("status") == "failed":
             result["failed"] += 1
         elif outcome.get("status") == "pending":
@@ -1037,7 +1155,7 @@ def reconcile_pending_operations(*, provider=None, now=None) -> dict:
     return result
 
 
-def periodic_sync(*, provider=None, now=None) -> dict:
+def periodic_sync(*, provider=None, zoom=None, now=None) -> dict:
     """Provider reconciliation: reflect manual external moves/deletes without
     reverting them, stop reminders for deleted meetings, and flag conflicts."""
     at = _now(now)
@@ -1070,10 +1188,13 @@ def periodic_sync(*, provider=None, now=None) -> dict:
             continue
         if actual_start.isoformat() != booking["start_iso"] \
                 or actual_end.isoformat() != booking["end_iso"]:
+            moved = {"start": actual_start,
+                     "duration_min": int((actual_end - actual_start)
+                                         .total_seconds() // 60)}
             store.update_booking(booking["id"], {"start_iso": actual_start.isoformat(),
                                                  "end_iso": actual_end.isoformat(),
-                                                 "duration_min": int((actual_end - actual_start)
-                                                                     .total_seconds() // 60)})
+                                                 "duration_min": moved["duration_min"]})
+            _retire_zoom_meeting(zoom, booking, moved_to=moved)
             store.suppress_booking_notifications(booking["id"])
             _queue_booking_notifications(store.get_booking(booking["id"]),
                                          kind_prefix="rescheduled")

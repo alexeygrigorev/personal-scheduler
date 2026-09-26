@@ -73,7 +73,8 @@ def _public_type_view(item: dict) -> dict:
             "fixed_duration_min": item.get("fixed_duration_min"),
             "allowed_durations": item.get("allowed_durations", []),
             "location_mode": item.get("location_mode", "fixed_text"),
-            "location_text": item.get("location_text", "") if item.get("location_mode") != "auto_meet" else "",
+            "location_text": item.get("location_text", "")
+            if item.get("location_mode") not in ("auto_meet", "auto_zoom") else "",
             "questions": [{"id": q.get("id"), "label": q.get("label"),
                            "type": q.get("type", "text"),
                            "required": bool(q.get("required")),
@@ -167,7 +168,7 @@ def _create_booking(event):
             name=str(body.get("name", "")), email=str(body.get("email", "")),
             notes=str(body.get("notes", "") or ""), answers=body.get("answers") or {},
             display_tz=str(body.get("tz") or "UTC"), idempotency_key=str(body["idempotency_key"]),
-            dapier_client=dapier_client, provider=provider)
+            dapier_client=dapier_client, provider=provider, zoom=wiring.get_zoom())
     except service.BookingError as exc:
         return _booking_error_response(exc)
     if queue is not None:
@@ -282,6 +283,7 @@ def _manage_api(event, token, action, method):
         return http.json_response(403, {"error": {"code": "not_allowed",
                                                   "message": "This link no longer allows changes."}})
     _dapier, provider, _email, queue = wiring.get()
+    zoom = wiring.get_zoom()
     if action == "cancel":
         if not body.get("idempotency_key"):
             raise HttpError(400, "invalid_input", "'idempotency_key' is required.")
@@ -290,13 +292,13 @@ def _manage_api(event, token, action, method):
                 booking_id=booking["id"], actor="invitee",
                 expected_revision=int(body.get("revision", -1)),
                 idempotency_key=str(body["idempotency_key"]),
-                reason=str(body.get("reason", "") or ""), provider=provider)
+                reason=str(body.get("reason", "") or ""), provider=provider, zoom=zoom)
         except service.BookingError as exc:
             return _booking_error_response(exc)
     elif action == "reschedule":
         for field in ("start", "idempotency_key"):
             if body.get(field) in (None, ""):
-                raise HttpError(400, "invalid_input", f"'{field}' is required.")
+                raise HttpError(400, "invalid_input", "'idempotency_key' is required.")
         try:
             result = service.reschedule_booking(
                 booking_id=booking["id"], actor="invitee",
@@ -304,7 +306,7 @@ def _manage_api(event, token, action, method):
                 new_start_iso=str(body["start"]),
                 new_duration_min=body.get("duration") or booking["duration_min"],
                 idempotency_key=str(body["idempotency_key"]),
-                dapier_client=_dapier, provider=provider)
+                dapier_client=_dapier, provider=provider, zoom=zoom)
         except service.BookingError as exc:
             return _booking_error_response(exc)
         token = result.pop("manage_token", "")

@@ -280,3 +280,105 @@ def test_disabled_type_stops_new_bookings_but_keeps_receipts(env):
         book(env, idempotency_key="a03-second")
     assert exc.value.code == "type_disabled"
     assert store.get_booking_by_reference(created["booking"]["reference"])["status"] == "confirmed"
+
+
+# --- zoom integration -----------------------------------------------------------
+
+def _zoom_type(env, zoom_type="dtc-30"):
+    """Flip a seeded type to auto_zoom for the lifecycle tests."""
+    et = store.get_event_type(zoom_type)
+    store.put_event_type({**et, "location_mode": "auto_zoom"})
+    return zoom_type
+
+
+def test_auto_zoom_booking_creates_meeting_and_puts_the_link_in_the_invite(env):
+    """The meeting is created before the calendar write: the join URL rides
+    inside the invitation itself, and the booking record carries it."""
+    from scheduler.zoom import InMemoryZoomMeetings
+    _zoom_type(env)
+    zoom = InMemoryZoomMeetings()
+    result = book(env, idempotency_key="zoom-create", zoom=zoom)
+    assert result["status"] == "confirmed"
+    assert result["booking"]["conference"] == {
+        "mode": "auto_zoom", "status": "ready",
+        "link": "https://zoom.test/j/1", "meeting_id": "zm-1"}
+    event = next(iter(env.provider.events.values()))
+    assert event["location"] == "https://zoom.test/j/1"
+
+
+def test_auto_zoom_failure_fails_the_booking_closed_and_releases_the_slot(env):
+    """A zoom outage must never confirm an invite that promises a link the
+    meeting type cannot deliver: the operation fails and the slot reopens."""
+    from scheduler.zoom import InMemoryZoomMeetings, ZoomUnavailable
+    _zoom_type(env)
+    zoom = InMemoryZoomMeetings()
+    zoom.fail_create = ZoomUnavailable("zoom down")
+    with pytest.raises(service.BookingError) as exc:
+        book(env, idempotency_key="zoom-down", zoom=zoom)
+    assert exc.value.code == "video_link_unavailable"
+    assert exc.value.status == 503
+    assert not env.provider.events  # no calendar event was written
+    assert not store.list_active_reservations()
+    # The slot reopens: a retry with a working Zoom books it.
+    retry = book(env, idempotency_key="zoom-retry", zoom=InMemoryZoomMeetings())
+    assert retry["status"] == "confirmed"
+
+
+def test_auto_zoom_without_a_port_fails_closed(env):
+    _zoom_type(env)
+    with pytest.raises(service.BookingError) as exc:
+        book(env, idempotency_key="zoom-missing", zoom=None)
+    assert exc.value.code == "video_link_unavailable"
+    assert not env.provider.events
+
+
+def test_plain_types_never_touch_zoom(env):
+    from scheduler.zoom import InMemoryZoomMeetings
+    zoom = InMemoryZoomMeetings()
+    result = book(env, idempotency_key="no-zoom", zoom=zoom)
+    assert result["status"] == "confirmed"
+    assert not zoom.meetings
+    assert result["booking"]["conference"]["status"] in ("none", "pending")
+
+
+def test_reschedule_moves_the_zoom_meeting(env):
+    from scheduler.zoom import InMemoryZoomMeetings
+    _zoom_type(env)
+    zoom = InMemoryZoomMeetings()
+    created = book(env, start_iso=berlin(6, 10, "14:00").isoformat(),
+                   idempotency_key="zoom-resched", zoom=zoom)
+    booking = store.get_booking_by_reference(created["booking"]["reference"])
+    moved = service.reschedule_booking(
+        booking_id=booking["id"], actor="invitee", expected_revision=1,
+        new_start_iso=berlin(6, 10, "10:00").isoformat(), new_duration_min=30,
+        idempotency_key="zoom-resched-2", provider=env.provider, zoom=zoom, now=NOW)
+    assert moved["status"] == "rescheduled"
+    assert zoom.updates == [("zm-1", "2026-10-06T08:00:00Z")]  # 10:00 Berlin == 08:00 UTC
+    # The join URL is stable across moves: the record keeps its link.
+    assert moved["booking"]["conference"]["link"] == "https://zoom.test/j/1"
+
+
+def test_cancellation_deletes_the_zoom_meeting(env):
+    from scheduler.zoom import InMemoryZoomMeetings
+    _zoom_type(env)
+    zoom = InMemoryZoomMeetings()
+    created = book(env, idempotency_key="zoom-cancel", zoom=zoom)
+    booking = store.get_booking_by_reference(created["booking"]["reference"])
+    result = service.cancel_booking(booking_id=booking["id"], actor="invitee",
+                                    expected_revision=1, idempotency_key="zoom-cancel-2",
+                                    provider=env.provider, zoom=zoom, now=NOW)
+    assert result["status"] == "canceled"
+    assert zoom.deletes == ["zm-1"]
+
+
+def test_zoom_failure_on_cancel_never_rolls_the_cancellation_back(env):
+    from scheduler.zoom import InMemoryZoomMeetings, ZoomUnavailable
+    _zoom_type(env)
+    zoom = InMemoryZoomMeetings()
+    created = book(env, idempotency_key="zoom-cancel-x", zoom=zoom)
+    booking = store.get_booking_by_reference(created["booking"]["reference"])
+    zoom.fail_delete = ZoomUnavailable("zoom down")
+    result = service.cancel_booking(booking_id=booking["id"], actor="invitee",
+                                    expected_revision=1, idempotency_key="zoom-cancel-x2",
+                                    provider=env.provider, zoom=zoom, now=NOW)
+    assert result["status"] == "canceled"  # calendar is authoritative

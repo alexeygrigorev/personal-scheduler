@@ -16,7 +16,7 @@ DURATION_MODES = ("fixed", "selectable")
 BOOKING_STATUSES = ("pending_confirmation", "confirmed", "canceled", "failed")
 OPERATION_KINDS = ("create", "reschedule", "cancel")
 OPERATION_STATES = ("not_attempted", "in_progress", "unknown", "succeeded", "failed")
-LOCATION_MODES = ("fixed_text", "fixed_url", "auto_meet", "provided_later")
+LOCATION_MODES = ("fixed_text", "fixed_url", "auto_meet", "auto_zoom", "provided_later")
 QUESTION_TYPES = ("text", "textarea", "single_choice")
 MAX_QUESTION_ANSWER = 5000
 

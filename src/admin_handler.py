@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from scheduler import config, http, oidc, render, security, service, store, wiring
 from scheduler.calendar import AuthLost, CalendarError
-from scheduler.dapier import DapierError, GrantDenied
+from scheduler.dapier import (DapierError, GrantDenied, InsufficientScope)
 from scheduler.http import HttpError
 from scheduler.models import EventType, parse_iso, validate_host
 
@@ -207,6 +207,7 @@ def _admin_api(event, segments, method, email):
         if not body.get("idempotency_key"):
             raise HttpError(400, "invalid_input", "'idempotency_key' is required.")
         _dapier, provider, _email_port, _queue = wiring.get()
+        _zoom = wiring.get_zoom()
         if segments[2] == "cancel":
             try:
                 result = service.cancel_booking(
@@ -214,7 +215,7 @@ def _admin_api(event, segments, method, email):
                     expected_revision=int(body.get("revision", -1)),
                     idempotency_key=str(body["idempotency_key"]),
                     reason=str(body.get("reason", "") or ""),
-                    provider=provider, host_override=True)
+                    provider=provider, zoom=_zoom, host_override=True)
             except service.BookingError as exc:
                 return http.json_response(exc.status, {"error": {"code": exc.code,
                                                                  "message": exc.message}})
@@ -227,7 +228,8 @@ def _admin_api(event, segments, method, email):
                     new_start_iso=str(body.get("start", "")),
                     new_duration_min=body.get("duration"),
                     idempotency_key=str(body["idempotency_key"]),
-                    dapier_client=_dapier, provider=provider, host_override=True)
+                    dapier_client=_dapier, provider=provider, zoom=_zoom,
+                    host_override=True)
             except service.BookingError as exc:
                 return http.json_response(exc.status, {"error": {"code": exc.code,
                                                                  "message": exc.message}})
@@ -292,6 +294,40 @@ def _admin_api(event, segments, method, email):
                 409, "connect_denied",
                 "Dapier refused the connect start — the connection's agent "
                 "grant is missing or revoked.") from exc
+        return http.json_response(200, {"authorize_url": authorize_url})
+    if segments == ["zoom"] and method == "GET":
+        from scheduler.dapier import ZOOM_CONNECTION_ID
+        from scheduler.zoom import REQUIRED_ZOOM_SCOPES
+        # The probe answers the console's only real question — is the Zoom
+        # connection usable right now, and whose Zoom account answers.
+        # An ungranted connection is "not_connected", not an outage.
+        status = {"connection_ref": ZOOM_CONNECTION_ID, "expected_provider": "zoom",
+                  "expected_account": "", "scopes": REQUIRED_ZOOM_SCOPES,
+                  "health": "not_configured"}
+        dapier = wiring.get()[0]
+        if dapier is not None:
+            try:
+                access = dapier.get_access(ZOOM_CONNECTION_ID, REQUIRED_ZOOM_SCOPES)
+                status["expected_account"] = access.account
+                status["health"] = "ok"
+            except (GrantDenied, InsufficientScope):
+                # No grant, or a consent that carried fewer scopes: both are
+                # operator-fixable reconnects, not outages.
+                status["health"] = "not_connected"
+            except DapierError:
+                status["health"] = "unavailable"
+        return http.json_response(200, status)
+    if segments == ["zoom", "connect"] and method == "POST":
+        from scheduler.dapier import ZOOM_CONNECTION_ID
+        _require_same_origin(event)
+        dapier = wiring.get()[0]
+        try:
+            authorize_url = dapier.start_connect(ZOOM_CONNECTION_ID)
+        except GrantDenied as exc:
+            raise HttpError(
+                409, "connect_denied",
+                "Dapier refused the Zoom connect start — the zoom-meetings "
+                "connection or its agent grant is missing.") from exc
         return http.json_response(200, {"authorize_url": authorize_url})
     if segments == ["settings"] and method == "GET":
         return http.json_response(200, {"host": store.get_host()})

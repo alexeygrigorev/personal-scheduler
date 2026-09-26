@@ -9,7 +9,9 @@ overlapping deployments.
 import json
 import logging
 
+from scheduler import dapier as dapier_mod
 from scheduler import service, store, wiring
+from scheduler.dapier import ZOOM_CONNECTION_ID
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -36,6 +38,16 @@ def _mark_health(provider, dapier_client):
             health["dapier"] = "unavailable"
     else:
         health["dapier"] = "not_configured"
+    if dapier_client is not None:
+        try:
+            dapier_client.get_access(ZOOM_CONNECTION_ID, [])
+            health["zoom"] = "ok"
+        except dapier_mod.GrantDenied:
+            health["zoom"] = "not_connected"
+        except Exception:
+            health["zoom"] = "unavailable"
+    else:
+        health["zoom"] = "not_configured"
     try:
         from scheduler.store import now_iso
         store.update_calendar_connection({"health": health, "last_check": now_iso()})
@@ -45,11 +57,12 @@ def _mark_health(provider, dapier_client):
 
 def handle_tick():
     dapier_client, provider, email_port, _queue = wiring.get()
+    zoom = wiring.get_zoom()
     outcome = {}
     if email_port is not None:
         outcome["notifications"] = service.process_due_notifications(email_port)
-    outcome["reconciliation"] = service.reconcile_pending_operations(provider=provider)
-    outcome["sync"] = service.periodic_sync(provider=provider)
+    outcome["reconciliation"] = service.reconcile_pending_operations(provider=provider, zoom=zoom)
+    outcome["sync"] = service.periodic_sync(provider=provider, zoom=zoom)
     _mark_health(provider, dapier_client)
     return {"ok": True, **outcome}
 
@@ -61,12 +74,13 @@ def handle_record(record):
         return {"ok": False, "reason": "invalid_json"}
     kind = payload.get("kind", "notify")
     dapier_client, provider, email_port, _queue = wiring.get()
+    zoom = wiring.get_zoom()
     if kind == "notify" and email_port is not None:
         return {"ok": True, **service.process_due_notifications(email_port)}
     if kind == "reconcile":
-        return {"ok": True, **service.reconcile_pending_operations(provider=provider)}
+        return {"ok": True, **service.reconcile_pending_operations(provider=provider, zoom=zoom)}
     if kind == "sync":
-        return {"ok": True, **service.periodic_sync(provider=provider)}
+        return {"ok": True, **service.periodic_sync(provider=provider, zoom=zoom)}
     return {"ok": True, "kind": kind}
 
 
