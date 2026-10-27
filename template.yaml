@@ -94,6 +94,8 @@ Resources:
           EvaluateTargetHealth: false
 
   SessionSecret:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: !Sub ${AWS::StackName}/session
