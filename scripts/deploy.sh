@@ -17,23 +17,6 @@ AUTH_CLIENT_ID="${AUTH_CLIENT_ID:-$(auth_output PersonalSchedulerClientId)}"
 AUTH_ISSUER="${AUTH_ISSUER:-$(auth_output IssuerUrl)}"
 AUTH_JWKS_URL="${AUTH_JWKS_URL:-$(auth_output JwksUrl)}"
 CERT_ARN="${CERT_ARN:-arn:aws:acm:eu-west-1:817685572750:certificate/c13e30c0-f10d-43f2-9bb3-d9b3f60d0b45}"
-# The dapier machine credential is enrolled out-of-band into Secrets Manager;
-# when its secret exists, point the stack at it so the calendar port comes
-# alive, otherwise omit the parameter and the stack keeps failing closed.
-MACHINE_SECRET_ID="${MACHINE_SECRET_ID:-personal-scheduler/dapier-machine}"
-DAPIER_MACHINE_SECRET_ARN="${DAPIER_MACHINE_SECRET_ARN:-$(aws secretsmanager describe-secret \
-  --secret-id "$MACHINE_SECRET_ID" --query ARN --output text 2>/dev/null || true)}"
-# A Dapier-issued API token, when the operator has provisioned one, wins over
-# the enrolled machine identity.
-API_TOKEN_SECRET_ID="${API_TOKEN_SECRET_ID:-personal-scheduler/dapier-api-token}"
-DAPIER_API_TOKEN_SECRET_ARN="${DAPIER_API_TOKEN_SECRET_ARN:-$(aws secretsmanager describe-secret \
-  --secret-id "$API_TOKEN_SECRET_ID" --query ARN --output text 2>/dev/null || true)}"
-# A Dapier-issued API token, when the operator has provisioned one, wins over
-# the enrolled machine identity.
-API_TOKEN_SECRET_ID="${API_TOKEN_SECRET_ID:-personal-scheduler/dapier-api-token}"
-DAPIER_API_TOKEN_SECRET_ARN="${DAPIER_API_TOKEN_SECRET_ARN:-$(aws secretsmanager describe-secret \
-  --secret-id "$API_TOKEN_SECRET_ID" --query ARN --output text 2>/dev/null || true)}"
-
 overrides=(
   DomainName=scheduler.dtcdev.click
   DomainCertificateArn="$CERT_ARN"
@@ -44,16 +27,4 @@ overrides=(
   AuthJwksUrl="$AUTH_JWKS_URL"
   RootAdmin=alexey@datatalks.club
 )
-# SAM rejects empty values in --parameter-overrides; omitting the parameter
-# keeps CloudFormation's previous value, which is '' until first enrolled.
-if [ -n "$DAPIER_MACHINE_SECRET_ARN" ] && [ "$DAPIER_MACHINE_SECRET_ARN" != "None" ]; then
-  overrides+=(DapierMachineSecretArn="$DAPIER_MACHINE_SECRET_ARN")
-fi
-if [ -n "$DAPIER_API_TOKEN_SECRET_ARN" ] && [ "$DAPIER_API_TOKEN_SECRET_ARN" != "None" ]; then
-  overrides+=(DapierApiTokenSecretArn="$DAPIER_API_TOKEN_SECRET_ARN")
-fi
-if [ -n "$DAPIER_API_TOKEN_SECRET_ARN" ] && [ "$DAPIER_API_TOKEN_SECRET_ARN" != "None" ]; then
-  overrides+=(DapierApiTokenSecretArn="$DAPIER_API_TOKEN_SECRET_ARN")
-fi
-
 sam deploy --config-env sandbox --parameter-overrides "${overrides[@]}" "$@"

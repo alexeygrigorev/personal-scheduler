@@ -218,7 +218,7 @@ class HttpDapierClient(DapierClient):
 
 
 class StaticTokenIdentity:
-    """Dapier-issued API token, loaded once from Secrets Manager.
+    """Dapier-issued API token, loaded once from DataOps team store.
 
     The operator creates the token in Dapier (console or ``dapier tokens
     create``), grants its ``token:<id>`` subject on the calendar connection,
@@ -227,17 +227,16 @@ class StaticTokenIdentity:
     revoking the token in Dapier rather than by rotating a machine identity.
     """
 
-    def __init__(self, secret_arn: str, timeout: int = 10):
-        self.secret_arn = (secret_arn or "").strip()
+    def __init__(self, secret_name: str, timeout: int = 10):
+        self.secret_name = (secret_name or "").strip()
         self.timeout = timeout
         self._token = ""
 
     def _load(self):
         if self._token:
             return
-        import boto3
-        raw = boto3.client("secretsmanager").get_secret_value(
-            SecretId=self.secret_arn)["SecretString"]
+        from .secrets import read_value
+        raw = read_value(self.secret_name)
         stored = json.loads(raw)
         token = str(stored.get("api_token", "")).strip()
         if not token.startswith("dap_"):
@@ -254,15 +253,15 @@ class DtcRefreshIdentity:
     """Enrolled machine identity for unattended token requests.
 
     The operator provisions a dedicated shared-auth client's refresh token
-    into Secrets Manager (one-time, out-of-band); at runtime this exchanges
+    into DataOps team store (one-time, out-of-band); at runtime this exchanges
     it at the DTC token endpoint for short-lived ID tokens, keeping the
     freshest one in memory until shortly before expiry. The scheduler's own
     DTC identity is the only durable credential involved — never a browser
     session and never a provider token."""
 
-    def __init__(self, auth_base_url: str, secret_arn: str, timeout: int = 10):
+    def __init__(self, auth_base_url: str, secret_name: str, timeout: int = 10):
         self.auth_base_url = (auth_base_url or "").rstrip("/")
-        self.secret_arn = (secret_arn or "").strip()
+        self.secret_name = (secret_name or "").strip()
         self.timeout = timeout
         self._refresh_token = ""
         self._client_id = ""
@@ -272,9 +271,8 @@ class DtcRefreshIdentity:
     def _load_secret(self):
         if self._refresh_token:
             return
-        import boto3
-        raw = boto3.client("secretsmanager").get_secret_value(
-            SecretId=self.secret_arn)["SecretString"]
+        from .secrets import read_value
+        raw = read_value(self.secret_name)
         stored = json.loads(raw)
         self._refresh_token = stored["refresh_token"]
         self._client_id = stored["client_id"]

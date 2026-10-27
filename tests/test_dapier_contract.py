@@ -91,16 +91,16 @@ def _id_token(expires_in):
 
 
 class _StaticSecret:
-    """Secrets Manager stand-in: the enrolled machine credential."""
+    """DataOps team store stand-in: the enrolled machine credential."""
 
     def __init__(self, client_id="sched-cli", refresh_token="machine-refresh"):
         self.payload = json.dumps({"client_id": client_id,
                                    "refresh_token": refresh_token})
         self.reads = 0
 
-    def get_secret_value(self, SecretId):
+    def read_value(self, name):
         self.reads += 1
-        return {"SecretString": self.payload}
+        return self.payload
 
 
 def _client(server, scopes=("calendar.freebusy", "calendar.events.owned")):
@@ -195,13 +195,12 @@ def test_unconfigured_client_fails_closed():
 
 
 def test_identity_loads_the_enrolled_secret_once(monkeypatch):
-    """The refresh credential is read from Secrets Manager once per
+    """The refresh credential is read from DataOps team store once per
     container and kept in memory; the ARN itself carries no secret."""
     import sys
     import types
     secret = _StaticSecret()
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: secret))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
     identity = DtcRefreshIdentity("https://auth.example", "arn:secret")
     identity._load_secret()
     identity._load_secret()  # second call must hit the in-memory copy
@@ -218,15 +217,15 @@ def test_expiry_parse_survives_a_malformed_token():
 # --- StaticTokenIdentity: Dapier-issued API tokens --------------------------
 
 class _ApiTokenSecret:
-    """Secrets Manager stand-in: the Dapier-issued API token."""
+    """DataOps team store stand-in: the Dapier-issued API token."""
 
     def __init__(self, payload='{"api_token": "dap_sched-token-value"}'):
         self.payload = payload
         self.reads = 0
 
-    def get_secret_value(self, SecretId):
+    def read_value(self, name):
         self.reads += 1
-        return {"SecretString": self.payload}
+        return self.payload
 
 
 def test_static_token_identity_bears_the_dapier_token(monkeypatch):
@@ -235,8 +234,7 @@ def test_static_token_identity_bears_the_dapier_token(monkeypatch):
     from scheduler.dapier import StaticTokenIdentity
 
     secret = _ApiTokenSecret()
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: secret))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
     identity = StaticTokenIdentity("arn:secret")
     assert identity.bearer() == "dap_sched-token-value"
     assert identity.bearer() == "dap_sched-token-value"
@@ -249,8 +247,7 @@ def test_static_token_identity_rejects_a_non_dap_secret(monkeypatch):
     from scheduler.dapier import StaticTokenIdentity, DapierNotConfigured
 
     secret = _ApiTokenSecret(payload='{"api_token": "not-a-dapier-token"}')
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: secret))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
 
     with pytest.raises(DapierNotConfigured):
         StaticTokenIdentity("arn:secret").bearer()
@@ -262,13 +259,12 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
     from scheduler.dapier import HttpDapierClient, StaticTokenIdentity
 
     class _Secret:
-        def get_secret_value(self, SecretId):
-            return {"SecretString": '{"api_token": "dap_sched-token-value"}'}
+        def read_value(self, name):
+            return '{"api_token": "dap_sched-token-value"}'
 
     import sys
     import types
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: _Secret()))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: _Secret().read_value(name))
     client = HttpDapierClient(
         f"http://127.0.0.1:{agent_api.server_port}", "personal-scheduler",
         identity=StaticTokenIdentity("arn:secret"),
@@ -284,15 +280,15 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
 # --- StaticTokenIdentity: Dapier-issued API tokens --------------------------
 
 class _ApiTokenSecret:
-    """Secrets Manager stand-in: the Dapier-issued API token."""
+    """DataOps team store stand-in: the Dapier-issued API token."""
 
     def __init__(self, payload='{"api_token": "dap_sched-token-value"}'):
         self.payload = payload
         self.reads = 0
 
-    def get_secret_value(self, SecretId):
+    def read_value(self, name):
         self.reads += 1
-        return {"SecretString": self.payload}
+        return self.payload
 
 
 def test_static_token_identity_bears_the_dapier_token(monkeypatch):
@@ -301,8 +297,7 @@ def test_static_token_identity_bears_the_dapier_token(monkeypatch):
     from scheduler.dapier import StaticTokenIdentity
 
     secret = _ApiTokenSecret()
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: secret))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
     identity = StaticTokenIdentity("arn:secret")
     assert identity.bearer() == "dap_sched-token-value"
     assert identity.bearer() == "dap_sched-token-value"
@@ -315,8 +310,7 @@ def test_static_token_identity_rejects_a_non_dap_secret(monkeypatch):
     from scheduler.dapier import StaticTokenIdentity, DapierNotConfigured
 
     secret = _ApiTokenSecret(payload='{"api_token": "not-a-dapier-token"}')
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: secret))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
 
     with pytest.raises(DapierNotConfigured):
         StaticTokenIdentity("arn:secret").bearer()
@@ -328,13 +322,12 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
     from scheduler.dapier import HttpDapierClient, StaticTokenIdentity
 
     class _Secret:
-        def get_secret_value(self, SecretId):
-            return {"SecretString": '{"api_token": "dap_sched-token-value"}'}
+        def read_value(self, name):
+            return '{"api_token": "dap_sched-token-value"}'
 
     import sys
     import types
-    monkeypatch.setitem(sys.modules, "boto3",
-                        types.SimpleNamespace(client=lambda name: _Secret()))
+    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: _Secret().read_value(name))
     client = HttpDapierClient(
         f"http://127.0.0.1:{agent_api.server_port}", "personal-scheduler",
         identity=StaticTokenIdentity("arn:secret"),

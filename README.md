@@ -52,10 +52,11 @@ which requires a DTC ID token from an enrolled machine identity. To enroll:
    prefills all three), verify the provider account, and grant the
    `personal-scheduler` agent both `use` and `connect` on it.
 2. Sign in once with the dedicated scheduler CLI client and store the
-   resulting credential in Secrets Manager as
+   resulting credential in the DataOps team store record
+   `personal-scheduler.dapier-machine`, with field `value` containing the JSON
    `{ "client_id": "<cli-client-id>", "refresh_token": "..." }`.
-3. Deploy with `DapierMachineSecretArn` set to that secret's ARN. The stack
-   grants the functions read access to exactly that secret; with no ARN the
+3. Deploy with `DapierMachineSecretName` set to `personal-scheduler.dapier-machine`. The stack
+   grants the functions read access to exactly that secret; with no configured name the
    calendar port fails closed. The scheduler never stores provider tokens —
    Dapier keeps every refresh token, and calendar access tokens live only
    transiently in memory.
