@@ -22,7 +22,9 @@ def berlin(day, month, hhmm):
 
 
 @pytest.fixture
-def env(table):
+def env(table, monkeypatch):
+    monkeypatch.setattr(service, 'utcnow', lambda: NOW)
+    monkeypatch.setattr(store, 'utcnow', lambda: NOW)
     store.ensure_seed()
     store.put_schedule({"id": "default", "name": "Default", "timezone": "Europe/Berlin",
                         "weekly_windows": {"0": [["09:00", "17:00"]], "1": [["09:00", "17:00"]],

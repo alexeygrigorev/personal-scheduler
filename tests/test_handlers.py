@@ -33,7 +33,14 @@ class DummyQueue:
 
 
 @pytest.fixture
-def live(table):
+def live(table, monkeypatch):
+    monkeypatch.setattr(service, 'utcnow', lambda: NOW)
+    monkeypatch.setattr(store, 'utcnow', lambda: NOW)
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW.astimezone(tz) if tz else NOW.replace(tzinfo=None)
+    monkeypatch.setattr(public_handler, 'datetime', FixedDateTime)
     store.ensure_seed()
     store.put_schedule({"id": "default", "name": "Default", "timezone": "Europe/Berlin",
                         "weekly_windows": {"0": [["09:00", "17:00"]], "1": [["09:00", "17:00"]],
