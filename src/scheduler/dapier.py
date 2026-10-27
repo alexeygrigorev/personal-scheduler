@@ -14,7 +14,6 @@ and never stored in exports or backups.
 
 from __future__ import annotations
 
-import base64
 import json
 import time
 import urllib.parse
@@ -124,9 +123,8 @@ class HttpDapierClient(DapierClient):
 
     ``POST {base}/api/agent/token`` with ``{"connection_id", "agent"}`` and
     ``Authorization: Bearer <identity>`` → ``{provider, access_token,
-    expires_at, scope, provider_account_id}``. The identity is either a
-    Dapier-issued API token (:class:`StaticTokenIdentity`) or an enrolled
-    DTC machine identity (:class:`DtcRefreshIdentity`). Dapier keeps every
+    expires_at, scope, provider_account_id}``. The identity is a
+    Dapier-issued API token (:class:`StaticTokenIdentity`). Dapier keeps every
     refresh token and client secret; this side holds only non-secret
     connection references and a short-lived token in memory."""
 
@@ -247,75 +245,3 @@ class StaticTokenIdentity:
     def bearer(self) -> str:
         self._load()
         return self._token
-
-
-class DtcRefreshIdentity:
-    """Enrolled machine identity for unattended token requests.
-
-    The operator provisions a dedicated shared-auth client's refresh token
-    into DataOps team store (one-time, out-of-band); at runtime this exchanges
-    it at the DTC token endpoint for short-lived ID tokens, keeping the
-    freshest one in memory until shortly before expiry. The scheduler's own
-    DTC identity is the only durable credential involved — never a browser
-    session and never a provider token."""
-
-    def __init__(self, auth_base_url: str, secret_name: str, timeout: int = 10):
-        self.auth_base_url = (auth_base_url or "").rstrip("/")
-        self.secret_name = (secret_name or "").strip()
-        self.timeout = timeout
-        self._refresh_token = ""
-        self._client_id = ""
-        self._id_token = ""
-        self._expires_at_epoch = 0
-
-    def _load_secret(self):
-        if self._refresh_token:
-            return
-        from .secrets import read_value
-        raw = read_value(self.secret_name)
-        stored = json.loads(raw)
-        self._refresh_token = stored["refresh_token"]
-        self._client_id = stored["client_id"]
-
-    @staticmethod
-    def _expiry(token: str) -> int:
-        # Unverified read of the exp claim, to decide whether the cached
-        # bearer is stale before spending a refresh. Dapier verifies the
-        # signature; this side only avoids sending a demonstrably dead one.
-        try:
-            payload = token.split(".")[1]
-            padded = payload + "=" * (-len(payload) % 4)
-            return int(json.loads(base64.urlsafe_b64decode(padded))["exp"])
-        except (KeyError, ValueError, IndexError):
-            return 0
-
-    def _exchange(self):
-        self._load_secret()
-        body = urllib.parse.urlencode({
-            "grant_type": "refresh_token",
-            "refresh_token": self._refresh_token,
-            "client_id": self._client_id,
-        }).encode()
-        request = urllib.request.Request(
-            f"{self.auth_base_url}/oauth2/token", data=body, method="POST",
-            headers={"content-type": "application/x-www-form-urlencoded"})
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as handle:
-                data = json.loads(handle.read().decode())
-        except (urllib.error.HTTPError, urllib.error.URLError,
-                TimeoutError, ValueError) as exc:
-            raise DapierUnavailable(
-                f"machine identity refresh failed: {type(exc).__name__}") from exc
-        token = data.get("id_token", "")
-        if not token:
-            raise DapierUnavailable("machine identity refresh returned no token")
-        # The provider may rotate the refresh token; keep the newest so the
-        # in-memory credential never goes stale mid-container-lifetime.
-        self._refresh_token = data.get("refresh_token") or self._refresh_token
-        self._id_token = token
-        self._expires_at_epoch = self._expiry(token)
-
-    def bearer(self) -> str:
-        if not self._id_token or self._expires_at_epoch <= int(time.time()) + 30:
-            self._exchange()
-        return self._id_token

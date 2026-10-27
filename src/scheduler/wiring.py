@@ -21,16 +21,13 @@ def get():
     if _test_wiring is not None:
         return _test_wiring[:4]
     from .calendar import RestGoogleCalendarProvider
-    from .dapier import DtcRefreshIdentity, HttpDapierClient, StaticTokenIdentity
+    from .dapier import HttpDapierClient, StaticTokenIdentity
     from .emailer import SesEmailPort
     from . import store as store_mod
 
     identity = None
     if config.DAPIER_API_TOKEN_SECRET_NAME:
         identity = StaticTokenIdentity(config.DAPIER_API_TOKEN_SECRET_NAME)
-    elif config.DAPIER_MACHINE_SECRET_NAME:
-        identity = DtcRefreshIdentity(config.AUTH_BASE_URL,
-                                      config.DAPIER_MACHINE_SECRET_NAME)
     dapier = HttpDapierClient(config.DAPIER_BASE_URL, config.DAPIER_AGENT,
                               identity=identity)
 
@@ -54,9 +51,8 @@ def get_zoom():
     types require it, and they fail closed on their own."""
     if _test_wiring is not None:
         return _test_wiring[4]
-    if not config.DAPIER_BASE_URL or not config.DAPIER_AGENT or (
-            not config.DAPIER_API_TOKEN_SECRET_NAME
-            and not config.DAPIER_MACHINE_SECRET_NAME):
+    if (not config.DAPIER_BASE_URL or not config.DAPIER_AGENT
+            or not config.DAPIER_API_TOKEN_SECRET_NAME):
         return None
     from .dapier import ZOOM_CONNECTION_ID
     from .zoom import RestZoomMeetings, REQUIRED_ZOOM_SCOPES

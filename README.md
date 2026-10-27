@@ -41,27 +41,16 @@ The `dtc-30` type seeds the three invitee questions asked on the Calendly
 discussion note, optional company); edit them per meeting type in the admin
 console under Event types → Questions.
 
-## Dapier machine enrollment (one-time, per deployment)
+## Dapier API-token identity
 
-Calendar access flows through Dapier's agent API (`POST /api/agent/token`),
-which requires a DTC ID token from an enrolled machine identity. To enroll:
-
-1. In Dapier, create the `google-calendar` connection with the **Google
-   Calendar** provider and scopes `calendar.freebusy`,
-   `calendar.events.owned`, and `userinfo.email` (the console dialog
-   prefills all three), verify the provider account, and grant the
-   `personal-scheduler` agent both `use` and `connect` on it.
-2. Sign in once with the dedicated scheduler CLI client and store the
-   resulting credential in the DataOps team store record
-   `personal-scheduler.dapier-machine`, with field `value` containing the JSON
-   `{ "client_id": "<cli-client-id>", "refresh_token": "..." }`.
-3. Deploy with `DapierMachineSecretName` set to `personal-scheduler.dapier-machine`. The stack
-   grants the functions read access to exactly that secret; with no configured name the
-   calendar port fails closed. The scheduler never stores provider tokens —
-   Dapier keeps every refresh token, and calendar access tokens live only
-   transiently in memory.
+Calendar access uses Dapier's agent API (`POST /api/agent/token`) with a
+revocable Dapier API token. `DapierApiTokenSecretName` selects its team-store
+record, whose `value` field contains JSON with an `api_token` key. The Lambda
+roles may decrypt only the session and API-token records. Without a configured
+API-token record the calendar port fails closed. Provider refresh tokens stay
+in Dapier; access tokens are used transiently in memory.
 
 Afterwards the admin console's Overview card does the rest: **Authorize with
-Google** sends the enrolled machine identity to Dapier's connect endpoint and
+Google** sends the API-token identity to Dapier's connect endpoint and
 opens Google's consent screen directly (no Dapier sign-in), and the card's
 picker stores which of the account's writable calendars bookings go to.

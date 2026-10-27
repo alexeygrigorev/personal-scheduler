@@ -25,14 +25,8 @@ SECRETS_REGION = _clean("SECRETS_REGION", "eu-west-1")
 
 EMAIL_SENDER = _clean("EMAIL_SENDER", "scheduler@datatalks.club")
 DAPIER_BASE_URL = _clean("DAPIER_BASE_URL", "https://dapier.dtcdev.click").rstrip("/")
-# Agent identity presented to Dapier's token endpoint, and the DataOps store name holding this deployment's enrolled machine credential
-# ({"client_id", "refresh_token"}). Without either the calendar port fails
-# closed — no credential is ever guessed or stored here.
+# Dapier agent name and team-store record holding its revocable API token.
 DAPIER_AGENT = _clean("DAPIER_AGENT", "personal-scheduler")
-DAPIER_MACHINE_SECRET_NAME = _clean("DAPIER_MACHINE_SECRET_NAME")
-# Preferred over the enrolled machine identity when both are set: a
-# Dapier-issued API token ({"api_token": "dap_…"}) the operator controls —
-# visible and revocable in Dapier's console.
 DAPIER_API_TOKEN_SECRET_NAME = _clean("DAPIER_API_TOKEN_SECRET_NAME")
 WORK_QUEUE_URL = _clean("WORK_QUEUE_URL")
 

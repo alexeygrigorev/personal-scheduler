@@ -1,8 +1,7 @@
 """The scheduler→Dapier contract, pinned against the deployed agent API
-(DataTalksClub/dapier src/agent_api.py): POST /api/agent/token with a DTC
-ID-token bearer, plus the enrolled machine-identity refresh exchange."""
+(DataTalksClub/dapier src/agent_api.py): POST /api/agent/token with an
+API-token bearer."""
 
-import base64
 import json
 import threading
 import time
@@ -11,12 +10,12 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 
 from scheduler.dapier import (DapierError, DapierNotConfigured, DapierUnavailable,
-                              DtcRefreshIdentity, GrantDenied, HttpDapierClient,
+                              StaticTokenIdentity, GrantDenied, HttpDapierClient,
                               InsufficientScope, CALENDAR_CONNECTION_ID)
 
 
 class _AgentAPI(BaseHTTPRequestHandler):
-    """Scriptable stand-in for dapier's agent API and the DTC token endpoint."""
+    """Scriptable stand-in for Dapier's agent API."""
 
     def log_message(self, *_args):
         pass
@@ -32,28 +31,16 @@ class _AgentAPI(BaseHTTPRequestHandler):
     def do_POST(self):
         length = int(self.headers.get("content-length", 0))
         raw = self.rfile.read(length) or b"{}"
-        if self.path == "/oauth2/token":
-            # The DTC token endpoint speaks form-encoded OAuth grants.
-            from urllib.parse import parse_qs
-            grant = {k: v[0] for k, v in parse_qs(raw.decode()).items()}
-        else:
-            grant = json.loads(raw)
+        grant = json.loads(raw)
         self.server.requests.append({
             "path": self.path,
             "auth": self.headers.get("authorization", ""),
             "body": grant,
         })
         last = self.server.requests[-1]
-        if self.path == "/oauth2/token":
-            grant = last["body"]
-            if grant.get("refresh_token") != "machine-refresh":
-                return self._reply(400, {"error": "invalid_grant"})
-            return self._reply(200, {"id_token": self.server.id_token,
-                                     "expires_in": 3600})
         if self.path != "/api/agent/token":
             return self._reply(404, {"error": "Not found"})
-        if last["auth"] not in (f"Bearer {self.server.id_token}",
-                                f"Bearer {self.server.api_token}"):
+        if last["auth"] != f"Bearer {self.server.api_token}":
             return self._reply(401, {"error": "Invalid identity"})
         if self.server.mode != "ok":
             return self._reply(self.server.mode, {"error": "denied"})
@@ -74,7 +61,6 @@ def agent_api():
     server = HTTPServer(("127.0.0.1", 0), _AgentAPI)
     server.requests = []
     server.mode = "ok"
-    server.id_token = _id_token(expires_in=3600)
     server.api_token = "dap_sched-token-value"
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -83,31 +69,9 @@ def agent_api():
     server.server_close()
 
 
-def _id_token(expires_in):
-    payload = base64.urlsafe_b64encode(json.dumps({
-        "sub": "machine-sub", "exp": int(time.time()) + expires_in,
-    }).encode()).rstrip(b"=").decode()
-    return f"header.{payload}.signature"
-
-
-class _StaticSecret:
-    """DataOps team store stand-in: the enrolled machine credential."""
-
-    def __init__(self, client_id="sched-cli", refresh_token="machine-refresh"):
-        self.payload = json.dumps({"client_id": client_id,
-                                   "refresh_token": refresh_token})
-        self.reads = 0
-
-    def read_value(self, name):
-        self.reads += 1
-        return self.payload
-
-
 def _client(server, scopes=("calendar.freebusy", "calendar.events.owned")):
-    identity = DtcRefreshIdentity(f"http://127.0.0.1:{server.server_port}", "arn:secret")
-    identity._load_secret = lambda: None  # secret already loaded below
-    identity._refresh_token = "machine-refresh"
-    identity._client_id = "sched-cli"
+    identity = StaticTokenIdentity("test.api-token")
+    identity._token = server.api_token
     return HttpDapierClient(f"http://127.0.0.1:{server.server_port}",
                             "personal-scheduler", identity=identity), scopes
 
@@ -125,34 +89,6 @@ def test_token_request_matches_the_agent_api_contract(agent_api):
     assert access.usable()
     # Abbreviated scheduler scope names match the tail of the granted URLs.
     assert any(g.endswith("calendar.freebusy") for g in access.scopes)
-
-
-def test_machine_identity_exchanges_refresh_for_id_token(agent_api):
-    client, scopes = _client(agent_api)
-    client.get_access("calendar-alexey", list(scopes))
-    refresh_calls = [r for r in agent_api.requests if r["path"] == "/oauth2/token"]
-    assert len(refresh_calls) == 1
-    assert refresh_calls[0]["body"] == {"grant_type": "refresh_token",
-                                        "refresh_token": "machine-refresh",
-                                        "client_id": "sched-cli"}
-    # A still-valid cached ID token is reused: the second calendar operation
-    # costs one token call, not another refresh round-trip.
-    client.get_access("calendar-alexey", list(scopes))
-    refresh_calls = [r for r in agent_api.requests if r["path"] == "/oauth2/token"]
-    assert len(refresh_calls) == 1
-    assert len([r for r in agent_api.requests if r["path"] == "/api/agent/token"]) == 2
-
-
-def test_expired_id_token_triggers_a_fresh_exchange(agent_api):
-    identity = DtcRefreshIdentity(f"http://127.0.0.1:{agent_api.server_port}", "arn:secret")
-    identity._refresh_token = "machine-refresh"
-    identity._client_id = "sched-cli"
-    identity._id_token = _id_token(expires_in=-10)
-    identity._expires_at_epoch = int(time.time()) - 10
-    client = HttpDapierClient(f"http://127.0.0.1:{agent_api.server_port}",
-                              "personal-scheduler", identity=identity)
-    client.get_access("calendar-alexey", [])
-    assert any(r["path"] == "/oauth2/token" for r in agent_api.requests)
 
 
 def test_denied_grants_and_rate_limits_map_to_port_errors(agent_api):
@@ -194,26 +130,6 @@ def test_unconfigured_client_fails_closed():
         no_identity.get_access("calendar-alexey", [])
 
 
-def test_identity_loads_the_enrolled_secret_once(monkeypatch):
-    """The refresh credential is read from DataOps team store once per
-    container and kept in memory; the ARN itself carries no secret."""
-    import sys
-    import types
-    secret = _StaticSecret()
-    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
-    identity = DtcRefreshIdentity("https://auth.example", "arn:secret")
-    identity._load_secret()
-    identity._load_secret()  # second call must hit the in-memory copy
-    assert secret.reads == 1
-    assert identity._refresh_token == "machine-refresh"
-    assert identity._client_id == "sched-cli"
-
-
-def test_expiry_parse_survives_a_malformed_token():
-    assert DtcRefreshIdentity._expiry("not-a-jwt") == 0
-    assert DtcRefreshIdentity._expiry("a.b.c") == 0
-
-
 # --- StaticTokenIdentity: Dapier-issued API tokens --------------------------
 
 class _ApiTokenSecret:
@@ -229,8 +145,6 @@ class _ApiTokenSecret:
 
 
 def test_static_token_identity_bears_the_dapier_token(monkeypatch):
-    import sys
-    import types
     from scheduler.dapier import StaticTokenIdentity
 
     secret = _ApiTokenSecret()
@@ -242,8 +156,6 @@ def test_static_token_identity_bears_the_dapier_token(monkeypatch):
 
 
 def test_static_token_identity_rejects_a_non_dap_secret(monkeypatch):
-    import sys
-    import types
     from scheduler.dapier import StaticTokenIdentity, DapierNotConfigured
 
     secret = _ApiTokenSecret(payload='{"api_token": "not-a-dapier-token"}')
@@ -262,8 +174,6 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
         def read_value(self, name):
             return '{"api_token": "dap_sched-token-value"}'
 
-    import sys
-    import types
     monkeypatch.setattr("scheduler.secrets.read_value", lambda name: _Secret().read_value(name))
     client = HttpDapierClient(
         f"http://127.0.0.1:{agent_api.server_port}", "personal-scheduler",
@@ -275,66 +185,32 @@ def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
 
     assert access.usable()
     assert access.provider == "google"
+    assert [r["path"] for r in agent_api.requests] == ["/api/agent/token"]
 
 
-# --- StaticTokenIdentity: Dapier-issued API tokens --------------------------
+@pytest.mark.parametrize("configured", [True, False])
+def test_production_wiring_requires_api_token(agent_api, monkeypatch, configured):
+    from scheduler import config, wiring
 
-class _ApiTokenSecret:
-    """DataOps team store stand-in: the Dapier-issued API token."""
-
-    def __init__(self, payload='{"api_token": "dap_sched-token-value"}'):
-        self.payload = payload
-        self.reads = 0
-
-    def read_value(self, name):
-        self.reads += 1
-        return self.payload
-
-
-def test_static_token_identity_bears_the_dapier_token(monkeypatch):
-    import sys
-    import types
-    from scheduler.dapier import StaticTokenIdentity
-
-    secret = _ApiTokenSecret()
-    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
-    identity = StaticTokenIdentity("arn:secret")
-    assert identity.bearer() == "dap_sched-token-value"
-    assert identity.bearer() == "dap_sched-token-value"
-    assert secret.reads == 1  # cached in memory after the first read
-
-
-def test_static_token_identity_rejects_a_non_dap_secret(monkeypatch):
-    import sys
-    import types
-    from scheduler.dapier import StaticTokenIdentity, DapierNotConfigured
-
-    secret = _ApiTokenSecret(payload='{"api_token": "not-a-dapier-token"}')
-    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: secret.read_value(name))
-
-    with pytest.raises(DapierNotConfigured):
-        StaticTokenIdentity("arn:secret").bearer()
-
-
-def test_http_client_accepts_a_static_api_token(agent_api, monkeypatch):
-    """The API token is presented as the bearer on every agent-API call —
-    no DTC exchange in between (contract: dapier /api/agent/token)."""
-    from scheduler.dapier import HttpDapierClient, StaticTokenIdentity
-
-    class _Secret:
-        def read_value(self, name):
-            return '{"api_token": "dap_sched-token-value"}'
-
-    import sys
-    import types
-    monkeypatch.setattr("scheduler.secrets.read_value", lambda name: _Secret().read_value(name))
-    client = HttpDapierClient(
-        f"http://127.0.0.1:{agent_api.server_port}", "personal-scheduler",
-        identity=StaticTokenIdentity("arn:secret"),
-    )
-
-    access = client.get_access(CALENDAR_CONNECTION_ID,
-                               ["calendar.freebusy", "calendar.events.owned"])
-
-    assert access.usable()
-    assert access.provider == "google"
+    monkeypatch.setattr(wiring, "_test_wiring", None)
+    monkeypatch.setattr(config, "DAPIER_BASE_URL", f"http://127.0.0.1:{agent_api.server_port}")
+    monkeypatch.setattr(config, "DAPIER_AGENT", "personal-scheduler")
+    monkeypatch.setattr(config, "DAPIER_API_TOKEN_SECRET_NAME",
+                        "scheduler.api-token" if configured else "")
+    monkeypatch.setattr("scheduler.emailer.SesEmailPort", lambda sender: None)
+    reads = []
+    def read(name):
+        reads.append(name)
+        return json.dumps({"api_token": agent_api.api_token})
+    monkeypatch.setattr("scheduler.secrets.read_value", read)
+    client = wiring.get()[0]
+    if configured:
+        assert client.get_access(CALENDAR_CONNECTION_ID, []).usable()
+        assert reads == ["scheduler.api-token"]
+        assert [r["path"] for r in agent_api.requests] == ["/api/agent/token"]
+    else:
+        with pytest.raises(DapierNotConfigured):
+            client.get_access(CALENDAR_CONNECTION_ID, [])
+        assert reads == []
+        assert agent_api.requests == []
+        assert wiring.get_zoom() is None
