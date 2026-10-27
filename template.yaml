@@ -82,19 +82,6 @@ Resources:
           HostedZoneId: !Ref HostedZoneId
           EvaluateTargetHealth: false
 
-  SessionSecret:
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: !Sub ${AWS::StackName}/session
-      Description: HMAC key for scheduler session and invitee management cookies
-      GenerateSecretString:
-        SecretStringTemplate: '{}'
-        GenerateStringKey: signing_secret
-        PasswordLength: 64
-        ExcludePunctuation: true
-
   Table:
     Type: AWS::DynamoDB::Table
     Properties:
